@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414189743198",
+    "project_id": "kilimomkononi-fdd14",
+    "storage_bucket": "kilimomkononi-fdd14.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414189743198:android:975bfafd25815ae03098cf",
+        "android_client_info": {
+          "package_name": "com.example.kilimomkononi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXmB9nFR_Xk5Qjevkr2qqv23v6vOVePEo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
