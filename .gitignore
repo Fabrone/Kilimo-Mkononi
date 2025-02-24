@@ -43,3 +43,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter/Dart
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+pubspec.lock  # Optional, include if you want consistent dependencies
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# iOS
+ios/.symlinks/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Pods/
+ios/build/
+
+# Firebase
+google-services.json  # Exclude if sensitive
+GoogleService-Info.plist  # Exclude if sensitive
