@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:kilimomkononi/models/user_model.dart';
+import 'package:kilimomkononi/screens/adminmanagementscreen.dart';
 import 'package:kilimomkononi/screens/farm_management_screen.dart';
 import 'package:kilimomkononi/screens/farming_tips_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,7 +14,7 @@ import 'package:kilimomkononi/screens/market_price_prediction_widget.dart';
 import 'package:kilimomkononi/authentication/login.dart';
 import 'package:logger/logger.dart';
 import 'dart:convert';
-import 'dart:typed_data'; // For Uint8List
+import 'dart:typed_data';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,7 +26,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   Map<String, dynamic>? _userData;
-  Uint8List? _profileImageBytes; // Store decoded image bytes
+  Uint8List? _profileImageBytes;
+  bool _isMainAdmin = false;
   final logger = Logger(printer: PrettyPrinter());
 
   final List<String> _carouselImages = [
@@ -41,6 +44,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchUserData();
+    _listenToUserStatus(); // Optional real-time listener
   }
 
   Future<void> _fetchUserData() async {
@@ -51,29 +55,70 @@ class _HomePageState extends State<HomePage> {
           .doc(user.uid)
           .get();
       if (userSnapshot.exists) {
-        final data = userSnapshot.data() as Map<String, dynamic>;
-        String? profileImageBase64 = data['profileImage'];
+        AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
+
+        // Check if user is disabled
+        if (appUser.isDisabled) {
+          await FirebaseAuth.instance.signOut();
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Your account is disabled. Contact an admin.')),
+            );
+          }
+          return;
+        }
+
+        String? profileImageBase64 = appUser.profileImage;
         Uint8List? decodedImage;
 
-        // Decode Base64 image once and cache it
+        _isMainAdmin = appUser.toMap().containsKey('role') && appUser.toMap()['role'] == 'admin';
+
         if (profileImageBase64 != null) {
           try {
             decodedImage = base64Decode(profileImageBase64);
           } catch (e) {
-            // Handle invalid Base64 string gracefully
             logger.e('Error decoding profile image: $e');
           }
         }
 
         setState(() {
-          _userData = data;
+          _userData = appUser.toMap(); // Use AppUser data directly
           _profileImageBytes = decodedImage;
         });
       }
     }
   }
 
-  // Logout functionality
+  // Optional: Real-time listener for dynamic isDisabled changes
+  void _listenToUserStatus() {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.uid)
+          .snapshots()
+          .listen((snapshot) {
+        if (snapshot.exists) {
+          AppUser appUser = AppUser.fromFirestore(snapshot, null);
+          if (appUser.isDisabled && mounted) {
+            FirebaseAuth.instance.signOut();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Your account has been disabled. Contact an admin.')),
+            );
+          }
+        }
+      });
+    }
+  }
+
   Future<void> _handleLogout() async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -146,10 +191,32 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildCarousel(),
             _buildClickableSections(),
+            if (_isMainAdmin) _buildAdminButton(),
           ],
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildAdminButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminManagementScreen()),
+          );
+        },
+        icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+        label: const Text('Admin Management', style: TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
     );
   }
 
@@ -347,24 +414,22 @@ class _HomePageState extends State<HomePage> {
             );
           }),
           _buildDrawerItem(Icons.input, 'Field Data Input', () {
-            // Navigate to Field Data Input
-             Navigator.push(
-             context,
+            Navigator.push(
+              context,
               MaterialPageRoute(builder: (context) => const FieldDataScreen()),
-            ); 
+            );
           }),
           _buildDrawerItem(Icons.pest_control, 'Pest Management', () {
-             Navigator.push(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()),
             );
           }),
           _buildDrawerItem(Icons.supervisor_account, 'Farm Management', () {
-            // Navigate to Farm Management
-             Navigator.push(
-             context,
+            Navigator.push(
+              context,
               MaterialPageRoute(builder: (context) => const FarmManagementScreen()),
-            );  
+            );
           }),
           _buildDrawerItem(Icons.book, 'Manuals', () {
             // Navigate to Crop Manuals

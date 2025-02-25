@@ -53,6 +53,8 @@ dependencies:
   fl_chart: ^0.70.2
   flutter_local_notifications: ^18.0.1
   timezone: ^0.10.0
+  csv: ^6.0.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
