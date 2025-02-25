@@ -8,7 +8,7 @@ class MarketData {
   final double predictedPrice;
   final double retailPrice;
   final String userId;
-  final Timestamp timestamp; // Added timestamp field
+  final Timestamp timestamp; 
 
   MarketData({
     this.id,
@@ -29,7 +29,7 @@ class MarketData {
       'predictedPrice': predictedPrice,
       'retailPrice': retailPrice,
       'userId': userId,
-      'timestamp': timestamp, // Include timestamp in map
+      'timestamp': timestamp, 
     };
   }
 
@@ -37,13 +37,13 @@ class MarketData {
     final data = snapshot.data()!;
     return MarketData(
       id: snapshot.id,
-      region: data['region'] as String,
-      market: data['market'] as String,
-      cropType: data['cropType'] as String,
-      predictedPrice: (data['predictedPrice'] as num).toDouble(),
-      retailPrice: (data['retailPrice'] as num).toDouble(),
-      userId: data['userId'] as String,
-      timestamp: data['timestamp'] as Timestamp, // Parse timestamp
+      region: data['region'] as String? ?? 'Unknown', // Provide default if null
+      market: data['market'] as String? ?? 'Unknown',
+      cropType: data['cropType'] as String? ?? 'Unknown',
+      predictedPrice: (data['predictedPrice'] as num?)?.toDouble() ?? 0.0,
+      retailPrice: (data['retailPrice'] as num?)?.toDouble() ?? 0.0,
+      userId: data['userId'] as String? ?? 'Unknown',
+      timestamp: data['timestamp'] as Timestamp? ?? Timestamp.now(), // Default to current time if missing
     );
   }
 

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:kilimomkononi/screens/farm_management_screen.dart';
 import 'package:kilimomkononi/screens/farming_tips_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:kilimomkononi/screens/field_data_screen.dart';
+import 'package:kilimomkononi/screens/pests_diseases_home.dart';
 import 'package:kilimomkononi/screens/user_profile.dart';
 import 'package:kilimomkononi/screens/weather_screen.dart';
 import 'package:kilimomkononi/screens/market_price_prediction_widget.dart';
-import 'package:kilimomkononi/authentication/login.dart'; 
+import 'package:kilimomkononi/authentication/login.dart';
+import 'package:logger/logger.dart';
 import 'dart:convert';
+import 'dart:typed_data'; // For Uint8List
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,6 +24,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   Map<String, dynamic>? _userData;
+  Uint8List? _profileImageBytes; // Store decoded image bytes
+  final logger = Logger(printer: PrettyPrinter());
 
   final List<String> _carouselImages = [
     'assets/weather_forecast.jpg',
@@ -44,8 +51,23 @@ class _HomePageState extends State<HomePage> {
           .doc(user.uid)
           .get();
       if (userSnapshot.exists) {
+        final data = userSnapshot.data() as Map<String, dynamic>;
+        String? profileImageBase64 = data['profileImage'];
+        Uint8List? decodedImage;
+
+        // Decode Base64 image once and cache it
+        if (profileImageBase64 != null) {
+          try {
+            decodedImage = base64Decode(profileImageBase64);
+          } catch (e) {
+            // Handle invalid Base64 string gracefully
+            logger.e('Error decoding profile image: $e');
+          }
+        }
+
         setState(() {
-          _userData = userSnapshot.data() as Map<String, dynamic>;
+          _userData = data;
+          _profileImageBytes = decodedImage;
         });
       }
     }
@@ -69,7 +91,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
@@ -79,7 +101,7 @@ class _HomePageState extends State<HomePage> {
             'KilimoMkononi',
             style: TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.bold, 
+              fontWeight: FontWeight.bold,
             ),
           ),
           backgroundColor: const Color.fromARGB(255, 3, 39, 4),
@@ -87,8 +109,8 @@ class _HomePageState extends State<HomePage> {
             builder: (context) => IconButton(
               icon: const Icon(
                 Icons.menu,
-                color: Colors.white, 
-                size: 40, // Double the default size (24 -> 48)
+                color: Colors.white,
+                size: 40,
               ),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
@@ -98,7 +120,7 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(
                 Icons.notifications,
                 color: Colors.white,
-                size: 40, // Double the default size (24 -> 48)
+                size: 40,
               ),
               onPressed: () {
                 // Notification functionality
@@ -108,7 +130,7 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(
                 Icons.search,
                 color: Colors.white,
-                size: 40, // Double the default size (24 -> 48)
+                size: 40,
               ),
               onPressed: () {
                 // Search functionality
@@ -232,7 +254,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: const Color.fromARGB(255, 3, 39, 4),),
+            Icon(icon, size: 40, color: const Color.fromARGB(255, 3, 39, 4)),
             const SizedBox(height: 10),
             Text(
               title,
@@ -294,14 +316,14 @@ class _HomePageState extends State<HomePage> {
               ),
               accountName: Text(
                 _userData?['fullName'] ?? 'Loading...',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold,),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
-                child: _userData?['profileImage'] != null
+                child: _profileImageBytes != null
                     ? ClipOval(
                         child: Image.memory(
-                          base64Decode(_userData!['profileImage']),
+                          _profileImageBytes!,
                           fit: BoxFit.cover,
                           width: 60,
                           height: 60,
@@ -318,7 +340,7 @@ class _HomePageState extends State<HomePage> {
             Navigator.pop(context);
             setState(() {});
           }),
-          _buildDrawerItem(Icons.cloud, 'Weather Forecast', () { 
+          _buildDrawerItem(Icons.cloud, 'Weather Forecast', () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const WeatherScreen()),
@@ -326,15 +348,23 @@ class _HomePageState extends State<HomePage> {
           }),
           _buildDrawerItem(Icons.input, 'Field Data Input', () {
             // Navigate to Field Data Input
+             Navigator.push(
+             context,
+              MaterialPageRoute(builder: (context) => const FieldDataScreen()),
+            ); 
           }),
           _buildDrawerItem(Icons.pest_control, 'Pest Management', () {
-           /* Navigator.push(
+             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const MaizeScanScreen()),
-            );*/
+              MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()),
+            );
           }),
           _buildDrawerItem(Icons.supervisor_account, 'Farm Management', () {
             // Navigate to Farm Management
+             Navigator.push(
+             context,
+              MaterialPageRoute(builder: (context) => const FarmManagementScreen()),
+            );  
           }),
           _buildDrawerItem(Icons.book, 'Manuals', () {
             // Navigate to Crop Manuals
@@ -342,7 +372,7 @@ class _HomePageState extends State<HomePage> {
           _buildDrawerItem(Icons.settings, 'Settings', () {
             // Navigate to Settings
           }),
-          _buildDrawerItem(Icons.logout, 'Logout', _handleLogout), 
+          _buildDrawerItem(Icons.logout, 'Logout', _handleLogout),
         ],
       ),
     );

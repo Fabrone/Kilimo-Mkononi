@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kilimomkononi/models/market_data.dart';
+import 'package:logger/logger.dart';
 
 class ViewSavedDataPage extends StatefulWidget {
   const ViewSavedDataPage({super.key});
@@ -11,6 +12,7 @@ class ViewSavedDataPage extends StatefulWidget {
 }
 
 class ViewSavedDataPageState extends State<ViewSavedDataPage> {
+  final logger = Logger(printer: PrettyPrinter());
   void _deleteData(String docId) async {
     try {
       await FirebaseFirestore.instance
@@ -140,35 +142,70 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(
-            title: const Text('View Saved Data'), backgroundColor: Colors.teal),
+          title: const Text('View Saved Data'),
+          backgroundColor: const Color.fromARGB(255, 3, 39, 4), 
+          foregroundColor: Colors.white,
+        ),
         body: const Center(child: Text('Please log in to view saved data.')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('View Saved Data'),
-        backgroundColor: Colors.teal,
+        title: const Text(
+          'View Saved Data',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: const Color.fromARGB(255, 3, 39, 4), // Match MarketPricePredictionWidget
+        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('marketdata')
             .where('userId', isEqualTo: user.uid)
-            .orderBy('timestamp', descending: true) // Sort by timestamp
+            .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Error: ${snapshot.error}',
+                style: const TextStyle(fontSize: 18, color: Colors.red),
+              ),
+            );
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
-                child: Text('No saved data found.',
-                    style: TextStyle(fontSize: 18)));
+              child: Text(
+                'No saved data found.',
+                style: TextStyle(fontSize: 18),
+              ),
+            );
           }
-          final dataList = snapshot.data!.docs
-              .map((doc) => MarketData.fromFirestore(
-                  doc as DocumentSnapshot<Map<String, dynamic>>, null))
-              .toList();
+
+          final dataList = snapshot.data!.docs.map((doc) {
+            try {
+              return MarketData.fromFirestore(
+                doc as DocumentSnapshot<Map<String, dynamic>>,
+                null,
+              );
+            } catch (e) {
+              logger.e('Error parsing document ${doc.id}: $e'); 
+              return null;
+            }
+          }).where((data) => data != null).cast<MarketData>().toList();
+
+          if (dataList.isEmpty) {
+            return const Center(
+              child: Text(
+                'No valid saved data found.',
+                style: TextStyle(fontSize: 18),
+              ),
+            );
+          }
 
           return ListView.builder(
             itemCount: dataList.length,
@@ -178,20 +215,22 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: ListTile(
-                  title: Text('${data.cropType} - ${data.market}',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    '${data.cropType} - ${data.market}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Region: ${data.region}'),
+                      Text('Predicted: Ksh ${data.predictedPrice.toStringAsFixed(2)}/kg'),
+                      Text('Retail: Ksh ${data.retailPrice.toStringAsFixed(2)}/kg'),
                       Text(
-                          'Predicted: Ksh ${data.predictedPrice.toStringAsFixed(2)}/kg'),
-                      Text(
-                          'Retail: Ksh ${data.retailPrice.toStringAsFixed(2)}/kg'),
-                      Text(
-                          'Saved on: ${data.timestamp.toDate().toString().substring(0, 19)}'), // Display timestamp
+                        'Saved on: ${data.timestamp.toDate().toString().substring(0, 19)}',
+                      ),
                     ],
                   ),
                   trailing: Row(

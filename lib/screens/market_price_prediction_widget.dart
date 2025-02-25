@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:kilimomkononi/models/market_data.dart'; 
-import 'package:kilimomkononi/screens/view_saved_data_page.dart'; 
+import 'package:kilimomkononi/models/market_data.dart';
+import 'package:kilimomkononi/screens/view_saved_data_page.dart';
 
 class MarketPricePredictionWidget extends StatefulWidget {
   const MarketPricePredictionWidget({super.key});
@@ -131,169 +131,172 @@ class MarketPricePredictionWidgetState extends State<MarketPricePredictionWidget
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.grey[100],
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Market Price Prediction',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.green[900],
-              ),
+    return Theme(
+      data: ThemeData(
+        primarySwatch: Colors.green,
+        scaffoldBackgroundColor: Colors.grey[100],
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.black87),
+          titleLarge: TextStyle(color: Color.fromARGB(255, 3, 39, 4), fontWeight: FontWeight.bold),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Market Price Prediction',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
-            const SizedBox(height: 20),
-            DropdownButtonFormField<String>(
-              value: _selectedRegion,
-              items: ['Nairobi', 'Coast', 'Lake', 'Rift Valley', 'Central', 'Eastern']
-                  .map((region) => DropdownMenuItem(value: region, child: Text(region)))
-                  .toList(),
-              onChanged: (value) => setState(() => _selectedRegion = value),
-              decoration: InputDecoration(
-                labelText: 'Select Region',
-                prefixIcon: const Icon(Icons.location_on, color: Colors.green),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _marketController,
-              decoration: InputDecoration(
-                labelText: 'Enter Market',
-                hintText: 'e.g., Gikomba',
-                prefixIcon: const Icon(Icons.store, color: Colors.green),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedCrop,
-              items: _mockPrices.keys.map((crop) => DropdownMenuItem(value: crop, child: Text(crop))).toList(),
-              onChanged: (value) => setState(() => _selectedCrop = value),
-              decoration: InputDecoration(
-                labelText: 'Select Crop Type',
-                prefixIcon: const Icon(Icons.grass, color: Colors.green),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _isLoading ? null : _showPredictedPrice,
-              icon: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Icon(Icons.visibility, color: Colors.white),
-              label: Text(
-                _isLoading ? 'Loading...' : 'Show Predicted Price',
-                style: const TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[900],
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_predictedPrice != null)
-              Row(
-                children: [
-                  const Icon(Icons.price_check, color: Colors.green, size: 24),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Market Price: Ksh ${_predictedPrice!.toStringAsFixed(2)}/kg',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _retailPriceController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Your Retail Price (Ksh/kg)',
-                hintText: 'e.g., 60.0',
-                prefixIcon: const Icon(Icons.attach_money, color: Colors.green),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              onChanged: (_) => _updateRetailPrice(),
-            ),
-            const SizedBox(height: 16),
-            if (_userRetailPrice != null)
-              Row(
-                children: [
-                  Icon(
-                    _userRetailPrice! > (_predictedPrice ?? 0) ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: _userRetailPrice! > (_predictedPrice ?? 0) ? Colors.green : Colors.red,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Your Retail Price: Ksh ${_userRetailPrice!.toStringAsFixed(2)}/kg',
-                    style: const TextStyle(fontSize: 18, color: Colors.black87),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          ),
+          elevation: 0,
+          backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+          foregroundColor: Colors.white,
+        ),
+        body: Container(
+          padding: const EdgeInsets.all(16.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _saveMarketPrice,
-                  icon: const Icon(Icons.save, color: Colors.white),
-                  label: const Text(
-                    'Save',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[900],
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                DropdownButtonFormField<String>(
+                  value: _selectedRegion,
+                  items: ['Nairobi', 'Coast', 'Lake', 'Rift Valley', 'Central', 'Eastern']
+                      .map((region) => DropdownMenuItem(value: region, child: Text(region)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedRegion = value),
+                  decoration: InputDecoration(
+                    labelText: 'Select Region',
+                    prefixIcon: const Icon(Icons.location_on, color: Color.fromARGB(255, 3, 39, 4)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _resetFields,
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  label: const Text(
-                    'Reset',
-                    style: TextStyle(color: Colors.white),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _marketController,
+                  decoration: InputDecoration(
+                    labelText: 'Enter Market',
+                    hintText: 'e.g., Gikomba',
+                    prefixIcon: const Icon(Icons.store, color: Color.fromARGB(255, 3, 39, 4)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[900],
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedCrop,
+                  items: _mockPrices.keys.map((crop) => DropdownMenuItem(value: crop, child: Text(crop))).toList(),
+                  onChanged: (value) => setState(() => _selectedCrop = value),
+                  decoration: InputDecoration(
+                    labelText: 'Select Crop Type',
+                    prefixIcon: const Icon(Icons.grass, color: Color.fromARGB(255, 3, 39, 4)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _showPredictedPrice,
+                  icon: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Icon(Icons.visibility, color: Colors.white),
+                  label: Text(
+                    _isLoading ? 'Loading...' : 'Show Predicted Price',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (_predictedPrice != null)
+                  Row(
+                    children: [
+                      const Icon(Icons.price_check, color: Color.fromARGB(255, 3, 39, 4), size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Market Price: Ksh ${_predictedPrice!.toStringAsFixed(2)}/kg',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 3, 39, 4)),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _retailPriceController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Your Retail Price (Ksh/kg)',
+                    hintText: 'e.g., 60.0',
+                    prefixIcon: const Icon(Icons.attach_money, color: Color.fromARGB(255, 3, 39, 4)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  onChanged: (_) => _updateRetailPrice(),
+                ),
+                const SizedBox(height: 16),
+                if (_userRetailPrice != null)
+                  Row(
+                    children: [
+                      Icon(
+                        _userRetailPrice! > (_predictedPrice ?? 0) ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: _userRetailPrice! > (_predictedPrice ?? 0) ? Color.fromARGB(255, 3, 39, 4) : Colors.red,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Your Retail Price: Ksh ${_userRetailPrice!.toStringAsFixed(2)}/kg',
+                        style: const TextStyle(fontSize: 18, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _saveMarketPrice,
+                      icon: const Icon(Icons.save, color: Colors.white),
+                      label: const Text(
+                        'Save',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _resetFields,
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      label: const Text(
+                        'Reset',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ViewSavedDataPage()),
+                    ),
+                    icon: const Icon(Icons.list, color: Colors.white),
+                    label: const Text(
+                      'View Saved Data',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ViewSavedDataPage()),
-              ),
-              icon: const Icon(Icons.list, color: Colors.white),
-              label: const Text(
-                'View Saved Data',
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[900],
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

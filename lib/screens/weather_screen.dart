@@ -168,8 +168,8 @@ class WeatherScreenState extends State<WeatherScreen> {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green[900], // Dark green for buttons
-            foregroundColor: Colors.white, // White text/icons for buttons
+            backgroundColor: const Color.fromARGB(255, 3, 39, 4), 
+            foregroundColor: Colors.white, // White text/icons on buttons
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
@@ -180,11 +180,11 @@ class WeatherScreenState extends State<WeatherScreen> {
             'Weather Forecast',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.white, // Light color for title
+              color: Colors.white, 
             ),
           ),
           elevation: 0,
-          backgroundColor: Colors.green[900], // Dark green for AppBar
+          backgroundColor: Color.fromARGB(255, 3, 39, 4),
           foregroundColor: Colors.white,
         ),
         body: Padding(
@@ -217,7 +217,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  prefixIcon: Icon(Icons.location_on, color: Colors.green[900]), // Dark green for location icon
+                  prefixIcon: Icon(Icons.location_on, color: Color.fromARGB(255, 3, 39, 4)), 
                 ),
               ),
               const SizedBox(height: 16),
@@ -227,7 +227,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_isLoading) const CircularProgressIndicator(color: Colors.white),
-                    if (!_isLoading) const Icon(Icons.cloud_download),
+                    if (!_isLoading) const Icon(Icons.cloud_download, color: Color.fromARGB(255, 3, 39, 4)),
                     const SizedBox(width: 8),
                     Text(_isLoading ? 'Fetching...' : 'Get Forecast'),
                   ],

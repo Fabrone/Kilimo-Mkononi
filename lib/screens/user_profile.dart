@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:kilimomkononi/models/user_model.dart'; // Assuming this is your AppUser model file
+import 'package:kilimomkononi/models/user_model.dart'; 
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -244,7 +244,8 @@ class UserProfileScreenState extends State<UserProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Profile'),
-        backgroundColor: Colors.teal,
+          backgroundColor: const Color.fromARGB(255, 3, 39, 4), 
+          foregroundColor: Colors.white,
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: _userStream,
@@ -275,7 +276,7 @@ class UserProfileScreenState extends State<UserProfileScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.teal,
+                            color: const Color.fromARGB(255, 1, 39, 6),
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                           ),
@@ -307,13 +308,14 @@ class UserProfileScreenState extends State<UserProfileScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : () => _updateProfile(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: const Color.fromARGB(255, 3, 39, 4), 
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Update Profile', style: TextStyle(fontSize: 18)),
+                      : const Text('Update Profile', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ],
             ),
