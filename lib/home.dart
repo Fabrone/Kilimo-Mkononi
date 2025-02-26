@@ -44,12 +44,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchUserData();
-    _listenToUserStatus(); // Optional real-time listener
+    _listenToUserAndAdminStatus(); // Updated real-time listener
   }
 
   Future<void> _fetchUserData() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      logger.i('Fetching data for user: ${user.email}, UID: ${user.uid}');
       DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
           .collection('Users')
           .doc(user.uid)
@@ -57,7 +58,6 @@ class _HomePageState extends State<HomePage> {
       if (userSnapshot.exists) {
         AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
 
-        // Check if user is disabled
         if (appUser.isDisabled) {
           await FirebaseAuth.instance.signOut();
           if (mounted) {
@@ -72,10 +72,15 @@ class _HomePageState extends State<HomePage> {
           return;
         }
 
+        // Check admin status
+        DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+            .collection('Admins')
+            .doc(user.uid)
+            .get();
+        bool isAdmin = adminSnapshot.exists;
+
         String? profileImageBase64 = appUser.profileImage;
         Uint8List? decodedImage;
-
-        _isMainAdmin = appUser.toMap().containsKey('role') && appUser.toMap()['role'] == 'admin';
 
         if (profileImageBase64 != null) {
           try {
@@ -86,24 +91,31 @@ class _HomePageState extends State<HomePage> {
         }
 
         setState(() {
-          _userData = appUser.toMap(); // Use AppUser data directly
+          _userData = appUser.toMap();
           _profileImageBytes = decodedImage;
+          _isMainAdmin = isAdmin;
+          logger.i('Initial fetch - UserData: $_userData, IsAdmin: $_isMainAdmin');
         });
+      } else {
+        logger.w('No user data found in Firestore for UID: ${user.uid}');
       }
+    } else {
+      logger.w('No user logged in');
     }
   }
 
-  // Optional: Real-time listener for dynamic isDisabled changes
-  void _listenToUserStatus() {
+  // Real-time listener for both user status and admin status
+  void _listenToUserAndAdminStatus() {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      // Listen to user status (e.g., isDisabled)
       FirebaseFirestore.instance
           .collection('Users')
           .doc(user.uid)
           .snapshots()
-          .listen((snapshot) {
-        if (snapshot.exists) {
-          AppUser appUser = AppUser.fromFirestore(snapshot, null);
+          .listen((userSnapshot) {
+        if (userSnapshot.exists) {
+          AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
           if (appUser.isDisabled && mounted) {
             FirebaseAuth.instance.signOut();
             Navigator.pushReplacement(
@@ -113,7 +125,26 @@ class _HomePageState extends State<HomePage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Your account has been disabled. Contact an admin.')),
             );
+          } else if (mounted) {
+            setState(() {
+              _userData = appUser.toMap();
+              logger.i('User data updated: $_userData');
+            });
           }
+        }
+      });
+
+      // Listen to admin status
+      FirebaseFirestore.instance
+          .collection('Admins')
+          .doc(user.uid)
+          .snapshots()
+          .listen((adminSnapshot) {
+        if (mounted) {
+          setState(() {
+            _isMainAdmin = adminSnapshot.exists;
+            logger.i('Admin status updated: $_isMainAdmin');
+          });
         }
       });
     }
