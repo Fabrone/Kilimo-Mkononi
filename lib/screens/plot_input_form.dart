@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:kilimomkononi/models/field_data_model.dart'; // Adjust path as per your project structure
+import 'package:kilimomkononi/models/field_data_model.dart'; 
 
 class PlotInputForm extends StatefulWidget {
-  final String userId; // This must match the document ID from the "Users" collection
+  final String userId; 
   final String plotId;
   final FlutterLocalNotificationsPlugin notificationsPlugin;
 
@@ -72,7 +72,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
       _formKey.currentState!.save();
       try {
         final fieldData = FieldData(
-          userId: widget.userId, // Use the registered userId from "Users" collection
+          userId: widget.userId, 
           plotId: widget.plotId,
           crops: _crops,
           area: _area!,
@@ -84,7 +84,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
         );
         await FirebaseFirestore.instance
             .collection('fielddata')
-            .doc('${widget.userId}_${widget.plotId}') // Unique ID: "userId_plotId"
+            .doc('${widget.userId}_${widget.plotId}') 
             .set(fieldData.toMap());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -164,7 +164,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
               activeColor: Colors.green[300],
             ),
             ExpansionTile(
-              title: const Text('N-P-K (kg/ha)'),
+              title: const Text('N-P-K (kg/acre)'),
               children: [
                 _nutrientField('Nitrogen', _nitrogen, (v) => _nitrogen = v),
                 _nutrientField('Phosphorus', _phosphorus, (v) => _phosphorus = v),
@@ -251,7 +251,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
       );
 
   Widget _nutrientField(String label, double? value, Function(double) onSaved) => TextFormField(
-        decoration: _inputDecoration('$label (kg/ha)'),
+        decoration: _inputDecoration('$label (kg/acre)'),
         keyboardType: TextInputType.number,
         validator: (v) => v == null || double.tryParse(v) == null || double.parse(v) > 500 ? 'Enter a valid value (max 500)' : null,
         onSaved: (v) => onSaved(double.parse(v!)),

@@ -75,19 +75,19 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color.fromARGB(255, 3, 39, 4),
-        title: const Text('Choose Farming Structure', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color.fromRGBO(239, 240, 239, 1),
+        title: const Text('Choose Farming Structure', style: TextStyle(color: Color.fromARGB(255, 19, 13, 13))),
         content: StatefulBuilder(
           builder: (context, setState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButton<String>(
                 value: scenario,
-                dropdownColor: const Color.fromARGB(255, 3, 39, 4),
+                dropdownColor: const Color.fromRGBO(249, 250, 249, 1),
                 items: const [
-                  DropdownMenuItem(value: 'multiple', child: Text('Multiple Plots', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 'intercrop', child: Text('Intercropping', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 'single', child: Text('Single Crop', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'multiple', child: Text('Multiple Plots', style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(value: 'intercrop', child: Text('Intercropping', style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(value: 'single', child: Text('Single Crop', style: TextStyle(color: Colors.black))),
                 ],
                 onChanged: (value) => setState(() => scenario = value),
               ),
@@ -95,9 +95,9 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
                 TextField(
                   decoration: const InputDecoration(
                     hintText: 'Number of plots',
-                    hintStyle: TextStyle(color: Colors.white70),
+                    hintStyle: TextStyle(color: Color.fromRGBO(7, 3, 3, 0.702)),
                   ),
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color.fromARGB(255, 17, 9, 9)),
                   keyboardType: TextInputType.number,
                   onChanged: (value) => plotCount = int.tryParse(value),
                 ),
@@ -125,7 +125,7 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
                 );
               }
             },
-            child: const Text('OK', style: TextStyle(color: Colors.white)),
+            child: const Text('OK', style: TextStyle(color: Colors.black)),
           ),
         ],
       ),
@@ -151,7 +151,7 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
           bottom: TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.green[300],
+            indicatorColor: const Color.fromRGBO(67, 145, 67, 1),
             tabs: const [
               Tab(text: 'Input'),
               Tab(text: 'Summary'),
@@ -173,7 +173,7 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
                             onTap: () => setState(() => _currentPlotIndex = index),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              color: _currentPlotIndex == index ? Colors.green[300] : Colors.transparent,
+                              color: _currentPlotIndex == index ? const Color.fromARGB(255, 14, 27, 14) : Colors.transparent,
                               child: Text(_plotIds[index], style: const TextStyle(color: Colors.white)),
                             ),
                           ),
