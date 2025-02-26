@@ -6,7 +6,8 @@ import 'package:kilimomkononi/screens/farm_management_screen.dart';
 import 'package:kilimomkononi/screens/farming_tips_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:kilimomkononi/screens/field_data_screen.dart';
+import 'package:kilimomkononi/screens/field_data_input_page.dart';
+//import 'package:kilimomkononi/screens/field_data_screen.dart';
 import 'package:kilimomkononi/screens/pests_diseases_home.dart';
 import 'package:kilimomkononi/screens/user_profile.dart';
 import 'package:kilimomkononi/screens/weather_screen.dart';
@@ -29,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
   final logger = Logger(printer: PrettyPrinter());
+  String? _userId;
 
   final List<String> _carouselImages = [
     'assets/weather_forecast.jpg',
@@ -72,7 +74,6 @@ class _HomePageState extends State<HomePage> {
           return;
         }
 
-        // Check admin status
         DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
             .collection('Admins')
             .doc(user.uid)
@@ -91,10 +92,11 @@ class _HomePageState extends State<HomePage> {
         }
 
         setState(() {
+          _userId = user.uid; // Store the UID here
           _userData = appUser.toMap();
           _profileImageBytes = decodedImage;
           _isMainAdmin = isAdmin;
-          logger.i('Initial fetch - UserData: $_userData, IsAdmin: $_isMainAdmin');
+          logger.i('Initial fetch - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin');
         });
       } else {
         logger.w('No user data found in Firestore for UID: ${user.uid}');
@@ -445,10 +447,16 @@ class _HomePageState extends State<HomePage> {
             );
           }),
           _buildDrawerItem(Icons.input, 'Field Data Input', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const FieldDataScreen()),
-            );
+            if (_userId != null) { // Check to avoid null issues
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => FieldDataInputPage(userId: _userId!)),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('User ID not available. Please log in again.')),
+              );
+            }
           }),
           _buildDrawerItem(Icons.pest_control, 'Pest Management', () {
             Navigator.push(
