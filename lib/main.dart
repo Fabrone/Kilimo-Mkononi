@@ -1,14 +1,16 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:kilimomkononi/authentication/splashscreen.dart';
 import 'package:kilimomkononi/authentication/login.dart';
 import 'package:kilimomkononi/authentication/registration.dart';
 import 'package:kilimomkononi/home.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 

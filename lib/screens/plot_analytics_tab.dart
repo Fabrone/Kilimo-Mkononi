@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kilimomkononi/models/field_data_model.dart';
 
 class PlotAnalyticsTab extends StatelessWidget {
-  final String userId; // Matches Firebase Auth UID from HomePage
+  final String userId;
   final List<String> plotIds;
 
   const PlotAnalyticsTab({required this.userId, required this.plotIds, super.key});
@@ -14,6 +14,7 @@ class PlotAnalyticsTab extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('fielddata')
           .where('userId', isEqualTo: userId)
+          .where('plotId', whereIn: plotIds)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -54,7 +55,7 @@ class PlotAnalyticsTab extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Color.fromARGB(255, 3, 39, 4), // Match app theme
+                  color: Color.fromARGB(255, 3, 39, 4),
                 ),
               ),
               const SizedBox(height: 16),

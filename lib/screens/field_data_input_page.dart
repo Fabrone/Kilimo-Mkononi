@@ -2,14 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
-//import 'package:timezone/timezone.dart' as tz;
 import 'package:kilimomkononi/screens/plot_input_form.dart';
-import 'package:kilimomkononi/screens/plot_summary_tab.dart';
-import 'package:kilimomkononi/screens/plot_analytics_tab.dart';
-//import 'package:kilimomkononi/models/field_data_model.dart';
 
 class FieldDataInputPage extends StatefulWidget {
-  final String userId; // Pass this from your app's auth system
+  final String userId; // Matches Firebase Auth UID from HomePage
 
   const FieldDataInputPage({required this.userId, super.key});
 
@@ -17,10 +13,10 @@ class FieldDataInputPage extends StatefulWidget {
   State<FieldDataInputPage> createState() => _FieldDataInputPageState();
 }
 
-class _FieldDataInputPageState extends State<FieldDataInputPage> {
-  String? _farmingScenario; // "multiple", "intercrop", "single"
+class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTickerProviderStateMixin {
+  String? _farmingScenario;
   List<String> _plotIds = [];
-  int _currentPlotIndex = 0;
+  late TabController _tabController;
   late FlutterLocalNotificationsPlugin _notificationsPlugin;
 
   @override
@@ -29,9 +25,16 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
     tz.initializeTimeZones();
     _initializeNotifications();
     _loadFarmingScenario();
+    _tabController = TabController(length: 1, vsync: this); // Initial length, updated later
   }
 
-  void _initializeNotifications() async {
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeNotifications() async {
     _notificationsPlugin = FlutterLocalNotificationsPlugin();
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
@@ -42,66 +45,92 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
   }
 
   Future<void> _loadFarmingScenario() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('fielddata')
-        .where('userId', isEqualTo: widget.userId)
-        .get();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('fielddata')
+          .where('userId', isEqualTo: widget.userId)
+          .get();
       if (snapshot.docs.isEmpty) {
-        _showOnboardingDialog();
+        await _showOnboardingDialog();
       } else {
         setState(() {
-          _plotIds = snapshot.docs.map((doc) => doc.id).toList();
+          _plotIds = snapshot.docs.map((doc) => doc['plotId'] as String).toList();
           _farmingScenario = _plotIds.length > 1
               ? 'multiple'
               : _plotIds.first.contains('Intercrop')
                   ? 'intercrop'
                   : 'single';
+          _tabController = TabController(length: _plotIds.length, vsync: this);
         });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error loading data: $e')));
       }
     }
   }
 
   Future<void> _showOnboardingDialog() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     String? scenario;
     int? plotCount;
+    String? plotLabelPrefix;
+
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color.fromRGBO(239, 240, 239, 1),
-        title: const Text('Choose Farming Structure', style: TextStyle(color: Color.fromARGB(255, 19, 13, 13))),
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Choose Your Farming Structure',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 3, 39, 4)),
+        ),
         content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButton<String>(
-                value: scenario,
-                dropdownColor: const Color.fromRGBO(249, 250, 249, 1),
-                items: const [
-                  DropdownMenuItem(value: 'multiple', child: Text('Multiple Plots', style: TextStyle(color: Colors.black))),
-                  DropdownMenuItem(value: 'intercrop', child: Text('Intercropping', style: TextStyle(color: Colors.black))),
-                  DropdownMenuItem(value: 'single', child: Text('Single Crop', style: TextStyle(color: Colors.black))),
-                ],
-                onChanged: (value) => setState(() => scenario = value),
-              ),
-              if (scenario == 'multiple')
-                TextField(
+          builder: (context, setState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: scenario,
                   decoration: const InputDecoration(
-                    hintText: 'Number of plots',
-                    hintStyle: TextStyle(color: Color.fromRGBO(7, 3, 3, 0.702)),
+                    labelText: 'Farming Type',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  style: const TextStyle(color: Color.fromARGB(255, 17, 9, 9)),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) => plotCount = int.tryParse(value),
+                  items: const [
+                    DropdownMenuItem(value: 'multiple', child: Text('Multiple Plots')),
+                    DropdownMenuItem(value: 'intercrop', child: Text('Intercropping')),
+                    DropdownMenuItem(value: 'single', child: Text('Single Crop')),
+                  ],
+                  onChanged: (value) => setState(() => scenario = value),
                 ),
-            ],
+                if (scenario == 'multiple') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      labelText: 'Number of Plots',
+                      hintText: 'e.g., 3',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => plotCount = int.tryParse(value),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      labelText: 'Plot Label Prefix',
+                      hintText: 'e.g., Plot, Field, Section',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onChanged: (value) => plotLabelPrefix = value.isNotEmpty ? value : 'Plot',
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -111,21 +140,25 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
                 setState(() {
                   _farmingScenario = scenario;
                   if (scenario == 'multiple') {
-                    _plotIds = List.generate(plotCount!, (i) => 'Plot ${i + 1}');
+                    _plotIds = List.generate(
+                      plotCount!,
+                      (i) => '${plotLabelPrefix ?? 'Plot'} ${i + 1}',
+                    );
                   } else if (scenario == 'intercrop') {
                     _plotIds = ['Intercrop'];
                   } else {
                     _plotIds = ['SingleCrop'];
                   }
+                  _tabController = TabController(length: _plotIds.length, vsync: this);
                 });
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   const SnackBar(content: Text('Please select a valid option')),
                 );
               }
             },
-            child: const Text('OK', style: TextStyle(color: Colors.black)),
+            child: const Text('OK', style: TextStyle(color: Color.fromARGB(255, 3, 39, 4))),
           ),
         ],
       ),
@@ -134,75 +167,59 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_farmingScenario == null) return const SizedBox(); // Wait for onboarding
+    if (_farmingScenario == null) return const SizedBox();
 
     return DefaultTabController(
-      length: 3,
+      length: _plotIds.length,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color.fromARGB(255, 3, 39, 4),
-          title: const Text('Field Data Input', style: TextStyle(color: Colors.white)),
-          actions: [
-            TextButton(
-              onPressed: _showOnboardingDialog,
-              child: const Text('Redefine Structure', style: TextStyle(color: Colors.white70)),
+          title: const Text(
+            'Field Data Management',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-          bottom: TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: const Color.fromRGBO(67, 145, 67, 1),
-            tabs: const [
-              Tab(text: 'Input'),
-              Tab(text: 'Summary'),
-              Tab(text: 'Analytics'),
-            ],
           ),
         ),
-        body: _farmingScenario == 'multiple' && _plotIds.isNotEmpty
-            ? TabBarView(
-                children: [
-                  Column(
-                    children: [
-                      SizedBox(
-                        height: 50,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _plotIds.length,
-                          itemBuilder: (context, index) => GestureDetector(
-                            onTap: () => setState(() => _currentPlotIndex = index),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              color: _currentPlotIndex == index ? const Color.fromARGB(255, 14, 27, 14) : Colors.transparent,
-                              child: Text(_plotIds[index], style: const TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: PlotInputForm(
-                          userId: widget.userId,
-                          plotId: _plotIds[_currentPlotIndex],
-                          notificationsPlugin: _notificationsPlugin,
-                        ),
-                      ),
-                    ],
-                  ),
-                  PlotSummaryTab(userId: widget.userId, plotIds: _plotIds),
-                  PlotAnalyticsTab(userId: widget.userId, plotIds: _plotIds),
-                ],
-              )
-            : TabBarView(
-                children: [
-                  PlotInputForm(
+        body: Column(
+          children: [
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: const Color.fromRGBO(67, 145, 67, 1),
+              tabs: _plotIds.map((plotId) => Tab(text: plotId)).toList(),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: _plotIds.map((plotId) {
+                  return PlotInputForm(
                     userId: widget.userId,
-                    plotId: _plotIds.first,
+                    plotId: plotId,
                     notificationsPlugin: _notificationsPlugin,
-                  ),
-                  PlotSummaryTab(userId: widget.userId, plotIds: _plotIds),
-                  PlotAnalyticsTab(userId: widget.userId, plotIds: _plotIds),
-                ],
+                  );
+                }).toList(),
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: ElevatedButton(
+                onPressed: _showOnboardingDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Redefine Structure', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

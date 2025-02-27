@@ -19,6 +19,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
       stream: FirebaseFirestore.instance
           .collection('fielddata')
           .where('userId', isEqualTo: widget.userId)
+          .where('plotId', whereIn: widget.plotIds)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -108,21 +109,11 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
   }
 
   void _editPlot(BuildContext context, FieldData plot) {
-    Navigator.pushNamed(
-      context,
-      '/plot_input',
-      arguments: {
-        'userId': widget.userId,
-        'plotId': plot.plotId,
-        'existingData': plot,
-      },
-    );
+    Navigator.pop(context); // Return to FieldDataInputPage
   }
 
   void _deletePlot(BuildContext context, FieldData plot) async {
-    // Capture ScaffoldMessengerState before async operations
     final messenger = ScaffoldMessenger.of(context);
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -147,16 +138,12 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
             .collection('fielddata')
             .doc('${widget.userId}_${plot.plotId}')
             .delete();
-        if (mounted) { // Still good to keep mounted for safety
-          messenger.showSnackBar(
-            SnackBar(content: Text('${plot.plotId} deleted successfully')),
-          );
+        if (mounted) {
+          messenger.showSnackBar(SnackBar(content: Text('${plot.plotId} deleted successfully')));
         }
       } catch (e) {
         if (mounted) {
-          messenger.showSnackBar(
-            SnackBar(content: Text('Error deleting plot: $e')),
-          );
+          messenger.showSnackBar(SnackBar(content: Text('Error deleting plot: $e')));
         }
       }
     }

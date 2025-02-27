@@ -1,15 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FieldData {
-  final String userId; // Matches the registered user's ID (e.g., from Firebase Auth)
-  final String plotId; // e.g., "Plot 1", "Intercrop", "SingleCrop"
-  final String? plotName; // Optional custom name
-  final List<Map<String, String>> crops; // [{type: "Maize", stage: "Flowering"}, ...]
-  final double area; // In SQM
-  final Map<String, double> npk; // {N: 30.0, P: 15.0, K: 20.0}
+  final String userId;
+  final String plotId;
+  final String? plotName;
+  final List<Map<String, String>> crops;
+  final double area;
+  final Map<String, double> npk;
   final List<String> microNutrients;
-  final List<Map<String, dynamic>> interventions; // [{type: "Liquid", quantity: 5, unit: "liters", date: Timestamp}, ...]
-  final List<Map<String, dynamic>> reminders; // [{date: Timestamp, activity: "Fertilize"}, ...]
+  final List<Map<String, dynamic>> interventions;
+  final List<Map<String, dynamic>> reminders;
   final Timestamp timestamp;
 
   FieldData({
