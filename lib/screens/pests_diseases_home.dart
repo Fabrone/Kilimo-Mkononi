@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:kilimomkononi/screens/pest_management.dart';
-// import 'disease_management_page.dart'; // Add later
 
 class PestDiseaseHomePage extends StatelessWidget {
   const PestDiseaseHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final scaffoldMessenger = ScaffoldMessenger.of(context); // Capture context synchronously
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -42,7 +43,22 @@ class PestDiseaseHomePage extends StatelessWidget {
               context,
               'Manage Diseases',
               Icons.local_hospital,
-              () {}, // Placeholder for DiseaseManagementPage
+              () {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Disease Management coming soon!')),
+                );
+              }, // Placeholder
+            ),
+            const SizedBox(height: 20),
+            _buildOptionCard(
+              context,
+              'Identify Issue by Symptoms',
+              Icons.search,
+              () {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Symptom Identification coming soon!')),
+                );
+              }, // Placeholder
             ),
           ],
         ),
