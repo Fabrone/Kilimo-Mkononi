@@ -13,25 +13,47 @@ class ViewSavedDataPage extends StatefulWidget {
 
 class ViewSavedDataPageState extends State<ViewSavedDataPage> {
   final logger = Logger(printer: PrettyPrinter());
+
   void _deleteData(String docId) async {
+    if (!mounted) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: const Text('Are you sure you want to delete this data?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
     try {
-      await FirebaseFirestore.instance
-          .collection('marketdata')
-          .doc(docId)
-          .delete();
+      await FirebaseFirestore.instance.collection('marketdata').doc(docId).delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Data deleted successfully!'),
-              backgroundColor: Colors.green),
+            content: Text('Data deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Failed to delete data: $e'),
-              backgroundColor: Colors.redAccent),
+            content: Text('Failed to delete data: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -108,10 +130,7 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
 
     if (shouldSave == true && mounted) {
       try {
-        await FirebaseFirestore.instance
-            .collection('marketdata')
-            .doc(data.id)
-            .update({
+        await FirebaseFirestore.instance.collection('marketdata').doc(data.id).update({
           'region': regionController.text,
           'market': marketController.text,
           'cropType': cropController.text,
@@ -120,16 +139,18 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Data updated successfully!'),
-                backgroundColor: Colors.green),
+              content: Text('Data updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text('Failed to update data: $e'),
-                backgroundColor: Colors.redAccent),
+              content: Text('Failed to update data: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
           );
         }
       }
@@ -143,7 +164,7 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('View Saved Data'),
-          backgroundColor: const Color.fromARGB(255, 3, 39, 4), 
+          backgroundColor: const Color.fromARGB(255, 3, 39, 4),
           foregroundColor: Colors.white,
         ),
         body: const Center(child: Text('Please log in to view saved data.')),
@@ -156,7 +177,7 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
           'View Saved Data',
           style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: const Color.fromARGB(255, 3, 39, 4), // Match MarketPricePredictionWidget
+        backgroundColor: const Color.fromARGB(255, 3, 39, 4),
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -175,7 +196,19 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
             );
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading your saved data...',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
+            );
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
@@ -193,19 +226,19 @@ class ViewSavedDataPageState extends State<ViewSavedDataPage> {
                 null,
               );
             } catch (e) {
-              logger.e('Error parsing document ${doc.id}: $e'); 
-              return null;
+              logger.e('Error parsing document ${doc.id}: $e');
+              return MarketData(
+                id: doc.id,
+                region: 'Error',
+                market: 'Error',
+                cropType: 'Error',
+                predictedPrice: 0.0,
+                retailPrice: 0.0,
+                userId: user.uid,
+                timestamp: Timestamp.now(),
+              ); // Fallback data for parsing errors
             }
-          }).where((data) => data != null).cast<MarketData>().toList();
-
-          if (dataList.isEmpty) {
-            return const Center(
-              child: Text(
-                'No valid saved data found.',
-                style: TextStyle(fontSize: 18),
-              ),
-            );
-          }
+          }).toList();
 
           return ListView.builder(
             itemCount: dataList.length,
