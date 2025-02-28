@@ -100,18 +100,18 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                       const SizedBox(height: 8),
                       _buildFieldRow('Crops', plot.crops.isNotEmpty
                           ? plot.crops.map((c) => '${c['type']} (${c['stage']})').join(', ')
-                          : 'Null'),
-                      _buildFieldRow('Area', plot.area != null ? '${plot.area} SQM' : 'Null'),
-                      _buildFieldRow('Nitrogen (N)', plot.npk['N'] != null ? '${plot.npk['N']}' : 'Null'),
-                      _buildFieldRow('Phosphorus (P)', plot.npk['P'] != null ? '${plot.npk['P']}' : 'Null'),
-                      _buildFieldRow('Potassium (K)', plot.npk['K'] != null ? '${plot.npk['K']}' : 'Null'),
-                      _buildFieldRow('Micro-Nutrients', plot.microNutrients.isNotEmpty ? plot.microNutrients.join(', ') : 'Null'),
+                          : 'None'),
+                      _buildFieldRow('Area', plot.area != null ? '${plot.area} SQM' : 'None'),
+                      _buildFieldRow('Nitrogen (N)', plot.npk['N'] != null ? '${plot.npk['N']}' : 'None'),
+                      _buildFieldRow('Phosphorus (P)', plot.npk['P'] != null ? '${plot.npk['P']}' : 'None'),
+                      _buildFieldRow('Potassium (K)', plot.npk['K'] != null ? '${plot.npk['K']}' : 'None'),
+                      _buildFieldRow('Micro-Nutrients', plot.microNutrients.isNotEmpty ? plot.microNutrients.join(', ') : 'None'),
                       _buildFieldRow('Interventions', plot.interventions.isNotEmpty
                           ? plot.interventions.map((i) => '${i['type']} (${i['quantity']} ${i['unit']})').join(', ')
-                          : 'Null'),
+                          : 'None'),
                       _buildFieldRow('Reminders', plot.reminders.isNotEmpty
                           ? plot.reminders.map((r) => '${r['activity']} (${r['date'].toDate().toString().substring(0, 10)})').join(', ')
-                          : 'Null'),
+                          : 'None'),
                     ],
                   ),
                 ),
@@ -138,7 +138,8 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
     );
   }
 
-  void _editPlot(BuildContext context, FieldData plot) {
+  Future<void> _editPlot(BuildContext context, FieldData plot) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final TextEditingController cropController = TextEditingController();
     final TextEditingController stageController = TextEditingController();
     final TextEditingController areaController = TextEditingController(text: plot.area?.toString());
@@ -153,7 +154,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
     List<Map<String, dynamic>> editedInterventions = List.from(plot.interventions);
     List<Map<String, dynamic>> editedReminders = List.from(plot.reminders);
 
-    showDialog(
+    final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Edit ${plot.plotId}'),
@@ -169,8 +170,8 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                     if (value.isNotEmpty) {
                       setState(() {
                         editedCrops.add({'type': value, 'stage': ''});
+                        cropController.clear();
                       });
-                      cropController.clear();
                     }
                   },
                 ),
@@ -182,8 +183,8 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                     if (value.isNotEmpty && editedCrops.isNotEmpty) {
                       setState(() {
                         editedCrops.last['stage'] = value;
+                        stageController.clear();
                       });
-                      stageController.clear();
                     }
                   },
                 ),
@@ -249,59 +250,57 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               editedMicroNutrients = microNutrientControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
-              if (editedCrops.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Crop Type is required')));
-                return;
+              if (cropController.text.isNotEmpty && !editedCrops.any((c) => c['type'] == cropController.text)) {
+                editedCrops.add({'type': cropController.text, 'stage': stageController.text});
               }
-
-              final updatedFieldData = FieldData(
-                userId: widget.userId,
-                plotId: plot.plotId,
-                crops: editedCrops,
-                area: areaController.text.isNotEmpty ? double.parse(areaController.text) : null,
-                npk: {
-                  'N': nitrogenController.text.isNotEmpty ? double.parse(nitrogenController.text) : null,
-                  'P': phosphorusController.text.isNotEmpty ? double.parse(phosphorusController.text) : null,
-                  'K': potassiumController.text.isNotEmpty ? double.parse(potassiumController.text) : null,
-                },
-                microNutrients: editedMicroNutrients,
-                interventions: editedInterventions,
-                reminders: editedReminders,
-                timestamp: Timestamp.now(),
-              );
-
-              final messenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(dialogContext);
-
-              try {
-                await FirebaseFirestore.instance
-                    .collection('fielddata')
-                    .doc('${widget.userId}_${plot.plotId}')
-                    .set(updatedFieldData.toMap());
-                if (mounted) {
-                  messenger.showSnackBar(const SnackBar(content: Text('Plot updated successfully')));
-                }
-                navigator.pop();
-              } catch (e) {
-                if (mounted) {
-                  messenger.showSnackBar(SnackBar(content: Text('Error updating plot: $e')));
-                }
-              }
+              Navigator.pop(dialogContext, true);
             },
             child: const Text('Save'),
           ),
         ],
       ),
     );
+
+    if (result == true && mounted) {
+      final updatedFieldData = FieldData(
+        userId: widget.userId,
+        plotId: plot.plotId,
+        crops: editedCrops,
+        area: areaController.text.isNotEmpty ? double.parse(areaController.text) : null,
+        npk: {
+          'N': nitrogenController.text.isNotEmpty ? double.parse(nitrogenController.text) : null,
+          'P': phosphorusController.text.isNotEmpty ? double.parse(phosphorusController.text) : null,
+          'K': potassiumController.text.isNotEmpty ? double.parse(potassiumController.text) : null,
+        },
+        microNutrients: editedMicroNutrients,
+        interventions: editedInterventions,
+        reminders: editedReminders,
+        timestamp: Timestamp.now(),
+      );
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('fielddata')
+            .doc('${widget.userId}_${plot.plotId}')
+            .set(updatedFieldData.toMap());
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Plot updated successfully')));
+        }
+      } catch (e) {
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error updating plot: $e')));
+        }
+      }
+    }
   }
 
-  void _deletePlot(BuildContext context, FieldData plot) async {
+  Future<void> _deletePlot(BuildContext context, FieldData plot) async {
     final messenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
@@ -321,7 +320,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
       ),
     );
 
-    if (confirm == true) {
+    if (confirm == true && mounted) {
       try {
         await FirebaseFirestore.instance
             .collection('fielddata')

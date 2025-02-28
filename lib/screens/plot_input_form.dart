@@ -25,6 +25,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
   final _formKey = GlobalKey<FormState>();
   bool _useSQM = true;
   List<Map<String, String>> _crops = [];
+  final _cropTypeController = TextEditingController();
   double? _area;
   double? _nitrogen;
   double? _phosphorus;
@@ -35,7 +36,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
   List<Map<String, dynamic>> _reminders = [];
 
   final List<String> _cropStages = [
-    'Emergence', 'Propagation', 'Transplanting', 'Germination', 'Weeding',
+    'Planting', 'Emergence', 'Propagation', 'Transplanting', 'Weeding',
     'Flowering', 'Fruiting', 'Podding', 'Harvesting', 'Post-Harvest'
   ];
   final List<String> _commonUnits = ['Liters', 'Kg', 'Tons', 'Grams'];
@@ -81,11 +82,10 @@ class _PlotInputFormState extends State<PlotInputForm> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       _microNutrients = _microNutrientControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
-      if (_crops.isEmpty) {
-        if (mounted) {
-          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please enter at least one crop type')));
-        }
-        return;
+
+      // Add any pending crop type from the controller if not already added
+      if (_cropTypeController.text.isNotEmpty && !_crops.any((c) => c['type'] == _cropTypeController.text)) {
+        _crops.add({'type': _cropTypeController.text, 'stage': ''});
       }
 
       try {
@@ -110,6 +110,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
             .set(fieldData.toMap());
         if (mounted) {
           scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Data saved successfully')));
+          _cropTypeController.clear(); // Clear after saving
         }
       } catch (e) {
         if (mounted) {
@@ -133,12 +134,10 @@ class _PlotInputFormState extends State<PlotInputForm> {
     final tzDayBefore = tz.TZDateTime.from(date.subtract(const Duration(days: 1)), tz.local);
 
     try {
-      // Request notification permission
       await widget.notificationsPlugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
 
-      // Schedule reminder on the exact date
       await widget.notificationsPlugin.zonedSchedule(
         (widget.userId + widget.plotId + date.toString()).hashCode,
         'Reminder for ${widget.plotId}',
@@ -149,7 +148,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       );
 
-      // Schedule a day-before reminder
       await widget.notificationsPlugin.zonedSchedule(
         ('${widget.userId}${widget.plotId}${date}dayBefore').hashCode,
         'Upcoming Reminder for ${widget.plotId}',
@@ -188,11 +186,13 @@ class _PlotInputFormState extends State<PlotInputForm> {
             const Text('Add Crop', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextFormField(
+              controller: _cropTypeController,
               decoration: _inputDecoration('Crop Type (e.g., Maize)'),
               onFieldSubmitted: (value) {
                 if (value.isNotEmpty) {
                   setState(() {
                     _crops.add({'type': value, 'stage': ''});
+                    _cropTypeController.clear();
                   });
                 }
               },
@@ -427,11 +427,9 @@ class _PlotInputFormState extends State<PlotInputForm> {
           focusNode: focusNode,
           decoration: _inputDecoration('Crop Stage (e.g., Flowering)'),
           onFieldSubmitted: (value) {
-            if (value.isNotEmpty && _cropStages.contains(value)) {
+            if (value.isNotEmpty && _crops.isNotEmpty) {
               setState(() {
-                if (_crops.isNotEmpty) {
-                  _crops.last['stage'] = value;
-                }
+                _crops.last['stage'] = value;
               });
             }
             onFieldSubmitted();
