@@ -38,7 +38,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
             return Center(
               child: Text(
                 'Error: ${snapshot.error}',
-                style: const TextStyle(fontSize: 28, color: Colors.red),
+                style: const TextStyle(fontSize: 16, color: Colors.red),
               ),
             );
           }
@@ -52,7 +52,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
             return const Center(
               child: Text(
                 'No plot data available.',
-                style: TextStyle(fontSize: 28, color: Colors.black),
+                style: TextStyle(fontSize: 16, color: Colors.black),
               ),
             );
           }
@@ -78,7 +78,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                           Text(
                             plot.plotId,
                             style: const TextStyle(
-                              fontSize: 28,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Color.fromARGB(255, 3, 39, 4),
                             ),
@@ -102,9 +102,9 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                           ? plot.crops.map((c) => '${c['type']} (${c['stage']})').join(', ')
                           : 'Null'),
                       _buildFieldRow('Area', plot.area != null ? '${plot.area} SQM' : 'Null'),
-                      _buildFieldRow('Nitrogen (N)', plot.npk['N'] != null ? '${plot.npk['N']} kg/ha' : 'Null'),
-                      _buildFieldRow('Phosphorus (P)', plot.npk['P'] != null ? '${plot.npk['P']} kg/ha' : 'Null'),
-                      _buildFieldRow('Potassium (K)', plot.npk['K'] != null ? '${plot.npk['K']} kg/ha' : 'Null'),
+                      _buildFieldRow('Nitrogen (N)', plot.npk['N'] != null ? '${plot.npk['N']}' : 'Null'),
+                      _buildFieldRow('Phosphorus (P)', plot.npk['P'] != null ? '${plot.npk['P']}' : 'Null'),
+                      _buildFieldRow('Potassium (K)', plot.npk['K'] != null ? '${plot.npk['K']}' : 'Null'),
                       _buildFieldRow('Micro-Nutrients', plot.microNutrients.isNotEmpty ? plot.microNutrients.join(', ') : 'Null'),
                       _buildFieldRow('Interventions', plot.interventions.isNotEmpty
                           ? plot.interventions.map((i) => '${i['type']} (${i['quantity']} ${i['unit']})').join(', ')
@@ -129,9 +129,9 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label: ', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black)),
+          Text('$label: ', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
           Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 28, color: Colors.black)),
+            child: Text(value, style: const TextStyle(fontSize: 16, color: Colors.black)),
           ),
         ],
       ),
@@ -145,7 +145,8 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
     final TextEditingController nitrogenController = TextEditingController(text: plot.npk['N']?.toString());
     final TextEditingController phosphorusController = TextEditingController(text: plot.npk['P']?.toString());
     final TextEditingController potassiumController = TextEditingController(text: plot.npk['K']?.toString());
-    final TextEditingController microNutrientController = TextEditingController();
+    final List<TextEditingController> microNutrientControllers =
+        plot.microNutrients.map((m) => TextEditingController(text: m)).toList()..add(TextEditingController());
 
     List<Map<String, String>> editedCrops = List.from(plot.crops);
     List<String> editedMicroNutrients = List.from(plot.microNutrients);
@@ -202,29 +203,38 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: nitrogenController,
-                  decoration: const InputDecoration(labelText: 'Nitrogen (N) kg/ha'),
+                  decoration: const InputDecoration(labelText: 'Nitrogen (N)'),
                   keyboardType: TextInputType.number,
                 ),
                 TextField(
                   controller: phosphorusController,
-                  decoration: const InputDecoration(labelText: 'Phosphorus (P) kg/ha'),
+                  decoration: const InputDecoration(labelText: 'Phosphorus (P)'),
                   keyboardType: TextInputType.number,
                 ),
                 TextField(
                   controller: potassiumController,
-                  decoration: const InputDecoration(labelText: 'Potassium (K) kg/ha'),
+                  decoration: const InputDecoration(labelText: 'Potassium (K)'),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: microNutrientController,
-                  decoration: const InputDecoration(labelText: 'Add Micro-Nutrient'),
-                  onSubmitted: (value) {
-                    if (value.isNotEmpty) {
-                      setState(() => editedMicroNutrients.add(value));
-                      microNutrientController.clear();
-                    }
-                  },
+                Column(
+                  children: microNutrientControllers.map((controller) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(labelText: 'Micro-Nutrient'),
+                      onSubmitted: (value) {
+                        if (value.isNotEmpty && !editedMicroNutrients.contains(value)) {
+                          setState(() => editedMicroNutrients.add(value));
+                        }
+                      },
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => setState(() => microNutrientControllers.add(TextEditingController())),
+                  child: const Text('Add Another Micro-Nutrient'),
                 ),
                 Wrap(
                   spacing: 8,
@@ -244,6 +254,12 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
           ),
           TextButton(
             onPressed: () async {
+              editedMicroNutrients = microNutrientControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+              if (editedCrops.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Crop Type is required')));
+                return;
+              }
+
               final updatedFieldData = FieldData(
                 userId: widget.userId,
                 plotId: plot.plotId,
@@ -260,8 +276,8 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                 timestamp: Timestamp.now(),
               );
 
-              final messenger = ScaffoldMessenger.of(context); // Capture before async
-              final navigator = Navigator.of(dialogContext); // Capture NavigatorState before async
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(dialogContext);
 
               try {
                 await FirebaseFirestore.instance
@@ -271,7 +287,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
                 if (mounted) {
                   messenger.showSnackBar(const SnackBar(content: Text('Plot updated successfully')));
                 }
-                navigator.pop(); // Use captured NavigatorState
+                navigator.pop();
               } catch (e) {
                 if (mounted) {
                   messenger.showSnackBar(SnackBar(content: Text('Error updating plot: $e')));

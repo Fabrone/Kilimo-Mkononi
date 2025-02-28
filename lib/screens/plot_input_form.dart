@@ -30,6 +30,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
   double? _phosphorus;
   double? _potassium;
   List<String> _microNutrients = [];
+  List<TextEditingController> _microNutrientControllers = [TextEditingController()];
   List<Map<String, dynamic>> _interventions = [];
   List<Map<String, dynamic>> _reminders = [];
 
@@ -62,6 +63,8 @@ class _PlotInputFormState extends State<PlotInputForm> {
           _phosphorus = data.npk['P'];
           _potassium = data.npk['K'];
           _microNutrients = data.microNutrients;
+          _microNutrientControllers = data.microNutrients.map((m) => TextEditingController(text: m)).toList();
+          if (_microNutrientControllers.isEmpty) _microNutrientControllers.add(TextEditingController());
           _interventions = data.interventions;
           _reminders = data.reminders;
         });
@@ -77,16 +80,10 @@ class _PlotInputFormState extends State<PlotInputForm> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      if (_crops.isEmpty &&
-          _area == null &&
-          _nitrogen == null &&
-          _phosphorus == null &&
-          _potassium == null &&
-          _microNutrients.isEmpty &&
-          _interventions.isEmpty &&
-          _reminders.isEmpty) {
+      _microNutrients = _microNutrientControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+      if (_crops.isEmpty) {
         if (mounted) {
-          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please enter at least one field')));
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please enter at least one crop type')));
         }
         return;
       }
@@ -133,8 +130,15 @@ class _PlotInputFormState extends State<PlotInputForm> {
     );
     const notificationDetails = NotificationDetails(android: androidDetails);
     final tzDateTime = tz.TZDateTime.from(date, tz.local);
+    final tzDayBefore = tz.TZDateTime.from(date.subtract(const Duration(days: 1)), tz.local);
 
     try {
+      // Request notification permission
+      await widget.notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+
+      // Schedule reminder on the exact date
       await widget.notificationsPlugin.zonedSchedule(
         (widget.userId + widget.plotId + date.toString()).hashCode,
         'Reminder for ${widget.plotId}',
@@ -144,12 +148,30 @@ class _PlotInputFormState extends State<PlotInputForm> {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       );
+
+      // Schedule a day-before reminder
+      await widget.notificationsPlugin.zonedSchedule(
+        ('${widget.userId}${widget.plotId}${date}dayBefore').hashCode,
+        'Upcoming Reminder for ${widget.plotId}',
+        'Reminder: $activity is due tomorrow!',
+        tzDayBefore,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      );
+
       if (mounted) {
-        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Reminder scheduled')));
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Reminders scheduled successfully')));
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error scheduling reminder: $e')));
+        if (e.toString().contains('exact_alarms_not_permitted')) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('Exact reminders not permitted. Please enable in device settings.')),
+          );
+        } else {
+          scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error scheduling reminder: $e')));
+        }
       }
     }
   }
@@ -216,7 +238,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Optimal: ${_optimalNpk['N']} kg/ha',
+                      'Optimal: ${_optimalNpk['N']}',
                       style: const TextStyle(fontSize: 14, color: Colors.black54),
                     ),
                   ),
@@ -235,7 +257,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Optimal: ${_optimalNpk['P']} kg/ha',
+                      'Optimal: ${_optimalNpk['P']}',
                       style: const TextStyle(fontSize: 14, color: Colors.black54),
                     ),
                   ),
@@ -254,7 +276,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Optimal: ${_optimalNpk['K']} kg/ha',
+                      'Optimal: ${_optimalNpk['K']}',
                       style: const TextStyle(fontSize: 14, color: Colors.black54),
                     ),
                   ),
@@ -265,11 +287,32 @@ class _PlotInputFormState extends State<PlotInputForm> {
 
             const Text('Micro-Nutrients', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            TextFormField(
-              decoration: _inputDecoration('Add Micro-Nutrient (e.g., Zinc)'),
-              onFieldSubmitted: (value) {
-                if (value.isNotEmpty) setState(() => _microNutrients.add(value));
-              },
+            Column(
+              children: [
+                ..._microNutrientControllers.map((controller) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: TextFormField(
+                    controller: controller,
+                    decoration: _inputDecoration('Add Micro-Nutrient (e.g., Zinc)'),
+                    onFieldSubmitted: (value) {
+                      if (value.isNotEmpty && !_microNutrients.contains(value)) {
+                        setState(() => _microNutrients.add(value));
+                      }
+                    },
+                  ),
+                )),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() => _microNutrientControllers.add(TextEditingController()));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Add Another Micro-Nutrient'),
+                ),
+              ],
             ),
             Wrap(
               spacing: 8,
@@ -406,7 +449,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
       );
 
   Widget _nutrientField(String label, double? value, Function(double?) onSaved) => TextFormField(
-        decoration: _inputDecoration('$label (kg/ha)'),
+        decoration: _inputDecoration(label),
         keyboardType: TextInputType.number,
         validator: (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Enter a valid number' : null,
         onSaved: (v) => onSaved(v != null && v.isNotEmpty ? double.parse(v) : null),
