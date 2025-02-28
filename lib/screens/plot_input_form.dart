@@ -4,7 +4,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:kilimomkononi/models/field_data_model.dart';
 import 'package:kilimomkononi/screens/plot_summary_tab.dart';
-import 'package:kilimomkononi/screens/plot_analytics_tab.dart';
 
 class PlotInputForm extends StatefulWidget {
   final String userId;
@@ -33,6 +32,13 @@ class _PlotInputFormState extends State<PlotInputForm> {
   List<String> _microNutrients = [];
   List<Map<String, dynamic>> _interventions = [];
   List<Map<String, dynamic>> _reminders = [];
+
+  final List<String> _cropStages = [
+    'Emergence', 'Propagation', 'Transplanting', 'Germination', 'Weeding',
+    'Flowering', 'Fruiting', 'Podding', 'Harvesting', 'Post-Harvest'
+  ];
+  final List<String> _commonUnits = ['Liters', 'Kg', 'Tons', 'Grams'];
+  final Map<String, double> _optimalNpk = {'N': 30.0, 'P': 20.0, 'K': 25.0};
 
   @override
   void initState() {
@@ -71,13 +77,31 @@ class _PlotInputFormState extends State<PlotInputForm> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+      if (_crops.isEmpty &&
+          _area == null &&
+          _nitrogen == null &&
+          _phosphorus == null &&
+          _potassium == null &&
+          _microNutrients.isEmpty &&
+          _interventions.isEmpty &&
+          _reminders.isEmpty) {
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please enter at least one field')));
+        }
+        return;
+      }
+
       try {
         final fieldData = FieldData(
           userId: widget.userId,
           plotId: widget.plotId,
           crops: _crops,
-          area: _area!,
-          npk: {'N': _nitrogen!, 'P': _phosphorus!, 'K': _potassium!},
+          area: _area,
+          npk: {
+            'N': _nitrogen,
+            'P': _phosphorus,
+            'K': _potassium,
+          },
           microNutrients: _microNutrients,
           interventions: _interventions,
           reminders: _reminders,
@@ -139,7 +163,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Add Crop
             const Text('Add Crop', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextFormField(
@@ -147,11 +170,13 @@ class _PlotInputFormState extends State<PlotInputForm> {
               onFieldSubmitted: (value) {
                 if (value.isNotEmpty) {
                   setState(() {
-                    _crops.add({'type': value, 'stage': 'Emergence/Planting'});
+                    _crops.add({'type': value, 'stage': ''});
                   });
                 }
               },
             ),
+            const SizedBox(height: 8),
+            _buildCropStageField(),
             Wrap(
               spacing: 8,
               children: _crops.map((crop) => Chip(
@@ -161,14 +186,13 @@ class _PlotInputFormState extends State<PlotInputForm> {
             ),
             const SizedBox(height: 16),
 
-            // Area
             const Text('Plot Area', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextFormField(
               decoration: _inputDecoration('Area (${_useSQM ? 'SQM' : 'Acres'})'),
               keyboardType: TextInputType.number,
-              validator: (value) => value == null || double.tryParse(value) == null ? 'Enter a valid number' : null,
-              onSaved: (value) => _area = _useSQM ? double.parse(value!) : double.parse(value!) * 4046.86,
+              validator: (value) => value != null && value.isNotEmpty && double.tryParse(value) == null ? 'Enter a valid number' : null,
+              onSaved: (value) => _area = value != null && value.isNotEmpty ? (_useSQM ? double.parse(value) : double.parse(value) * 4046.86) : null,
             ),
             SwitchListTile(
               title: const Text('Use Square Meters (SQM)'),
@@ -178,24 +202,67 @@ class _PlotInputFormState extends State<PlotInputForm> {
             ),
             const SizedBox(height: 16),
 
-            // N-P-K
-            const Text('Nutrient Levels (kg/ha)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Soil Nutrient Levels', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: _nutrientField('Nitrogen (N)', _nitrogen, (v) => _nitrogen = v),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _nutrientField('Nitrogen (N)', _nitrogen, (v) => _nitrogen = v),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Optimal: ${_optimalNpk['N']} kg/ha',
+                      style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: _nutrientField('Phosphorus (P)', _phosphorus, (v) => _phosphorus = v),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _nutrientField('Phosphorus (P)', _phosphorus, (v) => _phosphorus = v),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Optimal: ${_optimalNpk['P']} kg/ha',
+                      style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: _nutrientField('Potassium (K)', _potassium, (v) => _potassium = v),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _nutrientField('Potassium (K)', _potassium, (v) => _potassium = v),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Optimal: ${_optimalNpk['K']} kg/ha',
+                      style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 
-            // Micro-Nutrients
             const Text('Micro-Nutrients', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextFormField(
@@ -213,7 +280,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
             ),
             const SizedBox(height: 16),
 
-            // Interventions
             const Text('Interventions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ElevatedButton(
@@ -237,7 +303,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
             )),
             const SizedBox(height: 16),
 
-            // Reminders
             const Text('Reminders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ElevatedButton(
@@ -264,7 +329,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
             )),
             const SizedBox(height: 16),
 
-            // Save and Navigation Buttons
             ElevatedButton(
               onPressed: _saveForm,
               style: ElevatedButton.styleFrom(
@@ -276,7 +340,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
             ),
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
                   onPressed: () => Navigator.push(
@@ -291,24 +355,46 @@ class _PlotInputFormState extends State<PlotInputForm> {
                   ),
                   child: const Text('Summary'),
                 ),
-                ElevatedButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PlotAnalyticsTab(userId: widget.userId, plotIds: [widget.plotId]),
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 3, 39, 4),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Analytics'),
-                ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCropStageField() {
+    return Autocomplete<String>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return _cropStages;
+        }
+        return _cropStages.where((stage) => stage.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+      },
+      onSelected: (String selection) {
+        setState(() {
+          if (_crops.isNotEmpty) {
+            _crops.last['stage'] = selection;
+          }
+        });
+      },
+      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          decoration: _inputDecoration('Crop Stage (e.g., Flowering)'),
+          onFieldSubmitted: (value) {
+            if (value.isNotEmpty && _cropStages.contains(value)) {
+              setState(() {
+                if (_crops.isNotEmpty) {
+                  _crops.last['stage'] = value;
+                }
+              });
+            }
+            onFieldSubmitted();
+          },
+        );
+      },
     );
   }
 
@@ -319,69 +405,92 @@ class _PlotInputFormState extends State<PlotInputForm> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       );
 
-  Widget _nutrientField(String label, double? value, Function(double) onSaved) => TextFormField(
-        decoration: _inputDecoration(label),
+  Widget _nutrientField(String label, double? value, Function(double?) onSaved) => TextFormField(
+        decoration: _inputDecoration('$label (kg/ha)'),
         keyboardType: TextInputType.number,
-        validator: (v) => v == null || double.tryParse(v) == null || double.parse(v) > 500 ? 'Enter a valid value (max 500)' : null,
-        onSaved: (v) => onSaved(double.parse(v!)),
+        validator: (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Enter a valid number' : null,
+        onSaved: (v) => onSaved(v != null && v.isNotEmpty ? double.parse(v) : null),
         initialValue: value?.toString(),
       );
 
   Future<Map<String, dynamic>?> _showInterventionDialog() async {
     String? type;
-    double? quantity;
+    String? quantityText;
     String? unit;
     DateTime? date = DateTime.now();
+    final quantityController = TextEditingController();
+    final unitController = TextEditingController();
+
     return await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add Intervention'),
         content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: type,
-                decoration: _inputDecoration('Intervention Type'),
-                items: const [
-                  DropdownMenuItem(value: 'Liquid', child: Text('Liquid Fertilizer')),
-                  DropdownMenuItem(value: 'Granular', child: Text('Granular Fertilizer')),
-                  DropdownMenuItem(value: 'Organic', child: Text('Organic Compost')),
-                ],
-                onChanged: (value) => setState(() => type = value),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: _inputDecoration('Quantity'),
-                keyboardType: TextInputType.number,
-                onChanged: (v) => quantity = double.tryParse(v),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: unit,
-                decoration: _inputDecoration('Unit'),
-                items: const [
-                  DropdownMenuItem(value: 'liters', child: Text('Liters')),
-                  DropdownMenuItem(value: 'kg', child: Text('Kg')),
-                  DropdownMenuItem(value: 'tons', child: Text('Tons')),
-                ],
-                onChanged: (value) => setState(() => unit = value),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                title: Text('Date: ${date!.toString().substring(0, 10)}'),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: date!,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2030),
-                  );
-                  if (picked != null) setState(() => date = picked);
-                },
-              ),
-            ],
+          builder: (context, setState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  decoration: _inputDecoration('Intervention Type (e.g., Fertilizer)'),
+                  onChanged: (value) => type = value,
+                ),
+                const SizedBox(height: 8),
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) return const Iterable<String>.empty();
+                    return ['5', '10', '15', '20', '25'].where((option) => option.contains(textEditingValue.text));
+                  },
+                  onSelected: (String selection) {
+                    quantityController.text = selection;
+                    quantityText = selection;
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    quantityController.text = controller.text;
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: _inputDecoration('Quantity'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) => quantityText = value,
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) return _commonUnits;
+                    return _commonUnits.where((option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                  },
+                  onSelected: (String selection) {
+                    unitController.text = selection;
+                    unit = selection;
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    unitController.text = controller.text;
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: _inputDecoration('Unit'),
+                      onChanged: (value) => unit = value,
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  title: Text('Date: ${date!.toString().substring(0, 10)}'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: date!,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) setState(() => date = picked);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -390,12 +499,17 @@ class _PlotInputFormState extends State<PlotInputForm> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, {
-              'type': type,
-              'quantity': quantity,
-              'unit': unit,
-              'date': Timestamp.fromDate(date!),
-            }),
+            onPressed: () {
+              final quantity = quantityText != null && quantityText!.isNotEmpty ? double.tryParse(quantityText!) : null;
+              if (type != null && type!.isNotEmpty) {
+                Navigator.pop(context, {
+                  'type': type,
+                  'quantity': quantity,
+                  'unit': unit,
+                  'date': Timestamp.fromDate(date!),
+                });
+              }
+            },
             child: const Text('OK'),
           ),
         ],

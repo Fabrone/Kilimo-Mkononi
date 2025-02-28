@@ -5,8 +5,8 @@ class FieldData {
   final String plotId;
   final String? plotName;
   final List<Map<String, String>> crops;
-  final double area;
-  final Map<String, double> npk;
+  final double? area; // Now nullable
+  final Map<String, double?> npk; // Values now nullable
   final List<String> microNutrients;
   final List<Map<String, dynamic>> interventions;
   final List<Map<String, dynamic>> reminders;
@@ -17,7 +17,7 @@ class FieldData {
     required this.plotId,
     this.plotName,
     required this.crops,
-    required this.area,
+    this.area,
     required this.npk,
     required this.microNutrients,
     required this.interventions,
@@ -44,7 +44,7 @@ class FieldData {
         plotName: map['plotName'],
         crops: List<Map<String, String>>.from(map['crops']),
         area: map['area'],
-        npk: Map<String, double>.from(map['npk']),
+        npk: Map<String, double?>.from(map['npk']),
         microNutrients: List<String>.from(map['microNutrients']),
         interventions: List<Map<String, dynamic>>.from(map['interventions']),
         reminders: List<Map<String, dynamic>>.from(map['reminders']),

@@ -5,7 +5,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:kilimomkononi/screens/plot_input_form.dart';
 
 class FieldDataInputPage extends StatefulWidget {
-  final String userId; // Matches Firebase Auth UID from HomePage
+  final String userId;
 
   const FieldDataInputPage({required this.userId, super.key});
 
@@ -25,7 +25,7 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTick
     tz.initializeTimeZones();
     _initializeNotifications();
     _loadFarmingScenario();
-    _tabController = TabController(length: 1, vsync: this); // Initial length, updated later
+    _tabController = TabController(length: 1, vsync: this);
   }
 
   @override
@@ -174,6 +174,10 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTick
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white), // White back button
+            onPressed: () => Navigator.pop(context),
+          ),
           title: const Text(
             'Field Data Management',
             style: TextStyle(
@@ -185,13 +189,16 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTick
         ),
         body: Column(
           children: [
-            TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              indicatorColor: const Color.fromRGBO(67, 145, 67, 1),
-              tabs: _plotIds.map((plotId) => Tab(text: plotId)).toList(),
+            Container(
+              color: const Color.fromARGB(255, 240, 244, 243), // Light background for TabBar
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: Colors.black, // Black for selected tab
+                unselectedLabelColor: Colors.black54, // Darker gray for unselected
+                indicatorColor: const Color.fromRGBO(67, 145, 67, 1),
+                tabs: _plotIds.map((plotId) => Tab(text: plotId)).toList(),
+              ),
             ),
             Expanded(
               child: TabBarView(
