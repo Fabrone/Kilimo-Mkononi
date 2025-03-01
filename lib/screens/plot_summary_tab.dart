@@ -15,6 +15,9 @@ class PlotSummaryTab extends StatefulWidget {
 class _PlotSummaryTabState extends State<PlotSummaryTab> {
   @override
   Widget build(BuildContext context) {
+    // Adjust plotIds to match Firestore format
+    final adjustedPlotIds = widget.plotIds.map((id) => '${widget.userId}_$id').toList();
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 3, 39, 4),
@@ -28,11 +31,13 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('fielddata')
-            .where('userId', isEqualTo: widget.userId)
-            .where('plotId', whereIn: widget.plotIds)
-            .snapshots(),
+        stream: adjustedPlotIds.isEmpty
+            ? null
+            : FirebaseFirestore.instance
+                .collection('fielddata')
+                .where('userId', isEqualTo: widget.userId)
+                .where('plotId', whereIn: adjustedPlotIds)
+                .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -42,7 +47,7 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
               ),
             );
           }
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData || snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 

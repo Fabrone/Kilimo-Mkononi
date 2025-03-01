@@ -5,8 +5,8 @@ class FieldData {
   final String plotId;
   final String? plotName;
   final List<Map<String, String>> crops;
-  final double? area; // Now nullable
-  final Map<String, double?> npk; // Values now nullable
+  final double? area;
+  final Map<String, double?> npk;
   final List<String> microNutrients;
   final List<Map<String, dynamic>> interventions;
   final List<Map<String, dynamic>> reminders;
@@ -39,15 +39,17 @@ class FieldData {
       };
 
   factory FieldData.fromMap(Map<String, dynamic> map) => FieldData(
-        userId: map['userId'],
-        plotId: map['plotId'],
-        plotName: map['plotName'],
-        crops: List<Map<String, String>>.from(map['crops']),
-        area: map['area'],
-        npk: Map<String, double?>.from(map['npk']),
-        microNutrients: List<String>.from(map['microNutrients']),
-        interventions: List<Map<String, dynamic>>.from(map['interventions']),
-        reminders: List<Map<String, dynamic>>.from(map['reminders']),
-        timestamp: map['timestamp'],
+        userId: map['userId'] as String,
+        plotId: map['plotId'] as String,
+        plotName: map['plotName'] as String?,
+        crops: (map['crops'] as List<dynamic>)
+            .map((item) => Map<String, String>.from(item as Map))
+            .toList(),
+        area: map['area'] as double?,
+        npk: Map<String, double?>.from(map['npk'] as Map),
+        microNutrients: List<String>.from(map['microNutrients'] as List),
+        interventions: List<Map<String, dynamic>>.from(map['interventions'] as List),
+        reminders: List<Map<String, dynamic>>.from(map['reminders'] as List),
+        timestamp: map['timestamp'] as Timestamp,
       );
 }

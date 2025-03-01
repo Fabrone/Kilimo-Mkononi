@@ -6,6 +6,7 @@ class PestData {
   final List<String> preventionStrategies;
   final String activeAgent;
   final List<String> possibleCauses;
+  final List<String> herbicides; // Added for herbicide examples
 
   PestData({
     required this.name,
@@ -13,16 +14,17 @@ class PestData {
     required this.preventionStrategies,
     required this.activeAgent,
     required this.possibleCauses,
+    required this.herbicides,
   });
 
   static final Map<String, PestData> pestLibrary = {
-    // Maize Pests
     'Termites': PestData(
       name: 'Termites',
       imagePath: 'assets/pests/termites.jpg',
       preventionStrategies: ['Crop rotation', 'Use of resistant varieties'],
       activeAgent: 'Imidacloprid',
       possibleCauses: ['Moist soil', 'Organic debris'],
+      herbicides: ['Termidor (Fipronil)', 'Premise (Imidacloprid)'],
     ),
     'Cutworms': PestData(
       name: 'Cutworms',
@@ -30,16 +32,17 @@ class PestData {
       preventionStrategies: ['Remove weeds', 'Ploughing before planting'],
       activeAgent: 'Lambda-cyhalothrin',
       possibleCauses: ['High humidity', 'Weedy fields'],
+      herbicides: ['Karate (Lambda-cyhalothrin)', 'Sevin (Carbaryl)'],
     ),
-    // Add more pests as needed (sample for brevity)
     'Aphids': PestData(
       name: 'Aphids',
       imagePath: 'assets/pests/aphids.jpg',
       preventionStrategies: ['Introduce ladybugs', 'Regular monitoring'],
       activeAgent: 'Neem oil',
       possibleCauses: ['Warm weather', 'Over-fertilization'],
+      herbicides: ['Azadirachtin (Neem-based)', 'Admire (Imidacloprid)'],
     ),
-    // Placeholder for others - expand this library with real data
+    // Add more pests with herbicides as needed
   };
 }
 
@@ -49,9 +52,9 @@ class PestIntervention {
   final String cropType;
   final String cropStage;
   final String intervention;
-  final double dosage;
-  final String unit;
-  final double area;
+  final double? dosage; // Nullable
+  final String? unit;   // Nullable
+  final double? area;   // Nullable
   final String areaUnit;
   final Timestamp timestamp;
 
@@ -61,9 +64,9 @@ class PestIntervention {
     required this.cropType,
     required this.cropStage,
     required this.intervention,
-    required this.dosage,
-    required this.unit,
-    required this.area,
+    this.dosage,
+    this.unit,
+    this.area,
     required this.areaUnit,
     required this.timestamp,
   });
@@ -86,9 +89,9 @@ class PestIntervention {
         cropType: map['cropType'] as String,
         cropStage: map['cropStage'] as String,
         intervention: map['intervention'] as String,
-        dosage: (map['dosage'] as num).toDouble(),
-        unit: map['unit'] as String,
-        area: (map['area'] as num).toDouble(),
+        dosage: map['dosage'] as double?,
+        unit: map['unit'] as String?,
+        area: map['area'] as double?,
         areaUnit: map['areaUnit'] as String,
         timestamp: map['timestamp'] as Timestamp,
       );
