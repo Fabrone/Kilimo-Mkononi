@@ -153,6 +153,7 @@ class _PestManagementPageState extends State<PestManagementPage> {
                 _buildHintCard('Prevention Strategies', _pestData!.preventionStrategies.join('\n')),
                 _buildHintCard('Possible Interventions', 'Chemical control with ${_pestData!.activeAgent}'),
                 _buildHintCard('Possible Causes', _pestData!.possibleCauses.join('\n')),
+                _buildHintCard('Herbicides', _pestData!.herbicides.join('\n')),
                 const SizedBox(height: 16),
                 Center(
                   child: ElevatedButton(

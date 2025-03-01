@@ -87,8 +87,8 @@ flutter:
     - assets/pest_management.jpg
     - assets/soil.png
     - assets/weather_forecast.jpg
+    - assets/pests/
 
-    
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
