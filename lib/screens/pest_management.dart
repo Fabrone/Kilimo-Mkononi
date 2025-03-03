@@ -1,10 +1,9 @@
-//import 'package:cloud_firestore/cloud_firestore.dart';
-//import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kilimomkononi/models/pest_disease_model.dart';
-import 'package:kilimomkononi/screens/intervention_page.dart'; // New import
-//import 'package:timezone/timezone.dart' as tz;
+import 'package:kilimomkononi/screens/intervention_page.dart';
 
 class PestManagementPage extends StatefulWidget {
   const PestManagementPage({super.key});
@@ -239,15 +238,50 @@ class _PestManagementPageState extends State<PestManagementPage> {
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: Image.asset(
-          imagePath,
-          height: 150,
-          width: double.infinity,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 150),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width - 56, // Account for padding and card margins
+            maxHeight: MediaQuery.of(context).size.height * 0.4, // Limit to 40% of screen height
+          ),
+          child: FutureBuilder<Size>(
+            future: _getImageSize(imagePath),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
+                return const SizedBox(
+                  height: 150,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final imageSize = snapshot.data!;
+              return AspectRatio(
+                aspectRatio: imageSize.width / imageSize.height,
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 150),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
+  }
+
+  Future<Size> _getImageSize(String imagePath) async {
+    final Completer<Size> completer = Completer();
+    final Image image = Image.asset(imagePath);
+    image.image.resolve(const ImageConfiguration()).addListener(
+      ImageStreamListener(
+        (ImageInfo info, bool synchronousCall) {
+          completer.complete(Size(info.image.width.toDouble(), info.image.height.toDouble()));
+        },
+        onError: (exception, stackTrace) {
+          completer.complete(const Size(150, 150)); // Default size on error
+        },
+      ),
+    );
+    return completer.future;
   }
 
   Widget _buildHintCard(String title, String content) {

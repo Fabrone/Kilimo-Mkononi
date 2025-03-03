@@ -7,12 +7,14 @@ import 'package:kilimomkononi/screens/farming_tips_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kilimomkononi/screens/field_data_input_page.dart';
-//import 'package:kilimomkononi/screens/field_data_screen.dart';
+import 'package:kilimomkononi/screens/manuals_screen.dart';
 import 'package:kilimomkononi/screens/pests_diseases_home.dart';
 import 'package:kilimomkononi/screens/user_profile.dart';
 import 'package:kilimomkononi/screens/weather_screen.dart';
 import 'package:kilimomkononi/screens/market_price_prediction_widget.dart';
 import 'package:kilimomkononi/authentication/login.dart';
+import 'package:kilimomkononi/settings/notifications_settings_screen.dart';
+import 'package:kilimomkononi/settings/settings_screen.dart';
 import 'package:logger/logger.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -202,6 +204,10 @@ class _HomePageState extends State<HomePage> {
               ),
               onPressed: () {
                 // Notification functionality
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationsSettingsScreen()),
+                );                
               },
             ),
             IconButton(
@@ -447,7 +453,7 @@ class _HomePageState extends State<HomePage> {
             );
           }),
           _buildDrawerItem(Icons.input, 'Field Data Input', () {
-            if (_userId != null) { // Check to avoid null issues
+            if (_userId != null) { 
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => FieldDataInputPage(userId: _userId!)),
@@ -471,10 +477,17 @@ class _HomePageState extends State<HomePage> {
             );
           }),
           _buildDrawerItem(Icons.book, 'Manuals', () {
-            // Navigate to Crop Manuals
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ManualsScreen()),
+            );            
           }),
           _buildDrawerItem(Icons.settings, 'Settings', () {
             // Navigate to Settings
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );            
           }),
           _buildDrawerItem(Icons.logout, 'Logout', _handleLogout),
         ],
