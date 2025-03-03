@@ -175,7 +175,7 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTick
         appBar: AppBar(
           backgroundColor: const Color.fromARGB(255, 3, 39, 4),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white), // White back button
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
@@ -190,12 +190,12 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTick
         body: Column(
           children: [
             Container(
-              color: const Color.fromARGB(255, 240, 244, 243), // Light background for TabBar
+              color: const Color.fromARGB(255, 240, 244, 243),
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                labelColor: Colors.black, // Black for selected tab
-                unselectedLabelColor: Colors.black54, // Darker gray for unselected
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.black54,
                 indicatorColor: const Color.fromRGBO(67, 145, 67, 1),
                 tabs: _plotIds.map((plotId) => Tab(text: plotId)).toList(),
               ),

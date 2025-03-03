@@ -25,11 +25,11 @@ class _PlotInputFormState extends State<PlotInputForm> {
   final _formKey = GlobalKey<FormState>();
   bool _useSQM = true;
   List<Map<String, String>> _crops = [];
-  final _cropTypeController = TextEditingController();
-  double? _area;
-  double? _nitrogen;
-  double? _phosphorus;
-  double? _potassium;
+  List<TextEditingController> _cropControllers = [];
+  final _areaController = TextEditingController();
+  final _nitrogenController = TextEditingController();
+  final _phosphorusController = TextEditingController();
+  final _potassiumController = TextEditingController();
   List<String> _microNutrients = [];
   List<TextEditingController> _microNutrientControllers = [TextEditingController()];
   List<Map<String, dynamic>> _interventions = [];
@@ -46,6 +46,27 @@ class _PlotInputFormState extends State<PlotInputForm> {
   void initState() {
     super.initState();
     _loadPlotData();
+    _initializeCropFields();
+  }
+
+  void _initializeCropFields() {
+    if (widget.plotId.contains('Intercrop') && _crops.isEmpty) {
+      setState(() {
+        _crops = [
+          {'type': '', 'stage': ''},
+          {'type': '', 'stage': ''},
+        ];
+        _cropControllers = [
+          TextEditingController(),
+          TextEditingController(),
+        ];
+      });
+    } else if (_crops.isEmpty) {
+      setState(() {
+        _crops = [{'type': '', 'stage': ''}];
+        _cropControllers = [TextEditingController()];
+      });
+    }
   }
 
   Future<void> _loadPlotData() async {
@@ -58,16 +79,28 @@ class _PlotInputFormState extends State<PlotInputForm> {
       if (doc.exists) {
         final data = FieldData.fromMap(doc.data()!);
         setState(() {
-          _crops = data.crops;
-          _area = data.area;
-          _nitrogen = data.npk['N'];
-          _phosphorus = data.npk['P'];
-          _potassium = data.npk['K'];
+          _crops = data.crops.isNotEmpty ? data.crops : widget.plotId.contains('Intercrop') ? [{'type': '', 'stage': ''}, {'type': '', 'stage': ''}] : [{'type': '', 'stage': ''}];
+          _cropControllers = _crops.map((crop) => TextEditingController(text: crop['type'])).toList();
+          _areaController.text = data.area?.toString() ?? '';
+          _nitrogenController.text = data.npk['N']?.toString() ?? '';
+          _phosphorusController.text = data.npk['P']?.toString() ?? '';
+          _potassiumController.text = data.npk['K']?.toString() ?? '';
           _microNutrients = data.microNutrients;
           _microNutrientControllers = data.microNutrients.map((m) => TextEditingController(text: m)).toList();
           if (_microNutrientControllers.isEmpty) _microNutrientControllers.add(TextEditingController());
           _interventions = data.interventions;
           _reminders = data.reminders;
+        });
+      } else if (widget.plotId.contains('Intercrop')) {
+        setState(() {
+          _crops = [
+            {'type': '', 'stage': ''},
+            {'type': '', 'stage': ''},
+          ];
+          _cropControllers = [
+            TextEditingController(),
+            TextEditingController(),
+          ];
         });
       }
     } catch (e) {
@@ -83,21 +116,23 @@ class _PlotInputFormState extends State<PlotInputForm> {
       _formKey.currentState!.save();
       _microNutrients = _microNutrientControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
 
-      // Add any pending crop type from the controller if not already added
-      if (_cropTypeController.text.isNotEmpty && !_crops.any((c) => c['type'] == _cropTypeController.text)) {
-        _crops.add({'type': _cropTypeController.text, 'stage': ''});
+      for (int i = 0; i < _cropControllers.length; i++) {
+        if (_cropControllers[i].text.isNotEmpty) {
+          _crops[i]['type'] = _cropControllers[i].text;
+        }
       }
+      _crops = _crops.where((crop) => crop['type']!.isNotEmpty).toList();
 
       try {
         final fieldData = FieldData(
           userId: widget.userId,
           plotId: widget.plotId,
           crops: _crops,
-          area: _area,
+          area: _areaController.text.isNotEmpty ? (_useSQM ? double.parse(_areaController.text) : double.parse(_areaController.text) * 4046.86) : null,
           npk: {
-            'N': _nitrogen,
-            'P': _phosphorus,
-            'K': _potassium,
+            'N': _nitrogenController.text.isNotEmpty ? double.parse(_nitrogenController.text) : null,
+            'P': _phosphorusController.text.isNotEmpty ? double.parse(_phosphorusController.text) : null,
+            'K': _potassiumController.text.isNotEmpty ? double.parse(_potassiumController.text) : null,
           },
           microNutrients: _microNutrients,
           interventions: _interventions,
@@ -110,7 +145,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
             .set(fieldData.toMap());
         if (mounted) {
           scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Data saved successfully')));
-          _cropTypeController.clear(); // Clear after saving
         }
       } catch (e) {
         if (mounted) {
@@ -185,36 +219,50 @@ class _PlotInputFormState extends State<PlotInputForm> {
           children: [
             const Text('Add Crop', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _cropTypeController,
-              decoration: _inputDecoration('Crop Type (e.g., Maize)'),
-              onFieldSubmitted: (value) {
-                if (value.isNotEmpty) {
+            ..._cropControllers.asMap().entries.map((entry) {
+              int idx = entry.key;
+              TextEditingController controller = entry.value;
+              return Column(
+                children: [
+                  TextFormField(
+                    controller: controller,
+                    decoration: _inputDecoration('Crop Type ${idx + 1} (e.g., Maize)'),
+                    validator: (value) => widget.plotId.contains('Intercrop') && idx < 2 && (value == null || value.isEmpty) ? 'Required for Intercrop' : null,
+                    onChanged: (value) {
+                      if (idx < _crops.length) {
+                        _crops[idx]['type'] = value;
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCropStageField(idx),
+                  const SizedBox(height: 8),
+                ],
+              );
+            }),
+            if (widget.plotId.contains('Intercrop'))
+              ElevatedButton(
+                onPressed: () {
                   setState(() {
-                    _crops.add({'type': value, 'stage': ''});
-                    _cropTypeController.clear();
+                    _crops.add({'type': '', 'stage': ''});
+                    _cropControllers.add(TextEditingController());
                   });
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _buildCropStageField(),
-            Wrap(
-              spacing: 8,
-              children: _crops.map((crop) => Chip(
-                label: Text('${crop['type']} (${crop['stage']})'),
-                onDeleted: () => setState(() => _crops.remove(crop)),
-              )).toList(),
-            ),
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('+ Additional Crop'),
+              ),
             const SizedBox(height: 16),
 
             const Text('Plot Area', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextFormField(
+              controller: _areaController,
               decoration: _inputDecoration('Area (${_useSQM ? 'SQM' : 'Acres'})'),
               keyboardType: TextInputType.number,
               validator: (value) => value != null && value.isNotEmpty && double.tryParse(value) == null ? 'Enter a valid number' : null,
-              onSaved: (value) => _area = value != null && value.isNotEmpty ? (_useSQM ? double.parse(value) : double.parse(value) * 4046.86) : null,
             ),
             SwitchListTile(
               title: const Text('Use Square Meters (SQM)'),
@@ -232,7 +280,12 @@ class _PlotInputFormState extends State<PlotInputForm> {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: _nutrientField('Nitrogen (N)', _nitrogen, (v) => _nitrogen = v),
+                    child: TextFormField(
+                      controller: _nitrogenController,
+                      decoration: _inputDecoration('Nitrogen (N)'),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Enter a valid number' : null,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -251,7 +304,12 @@ class _PlotInputFormState extends State<PlotInputForm> {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: _nutrientField('Phosphorus (P)', _phosphorus, (v) => _phosphorus = v),
+                    child: TextFormField(
+                      controller: _phosphorusController,
+                      decoration: _inputDecoration('Phosphorus (P)'),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Enter a valid number' : null,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -270,7 +328,12 @@ class _PlotInputFormState extends State<PlotInputForm> {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: _nutrientField('Potassium (K)', _potassium, (v) => _potassium = v),
+                    child: TextFormField(
+                      controller: _potassiumController,
+                      decoration: _inputDecoration('Potassium (K)'),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Enter a valid number' : null,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -406,7 +469,7 @@ class _PlotInputFormState extends State<PlotInputForm> {
     );
   }
 
-  Widget _buildCropStageField() {
+  Widget _buildCropStageField(int index) {
     return Autocomplete<String>(
       optionsBuilder: (TextEditingValue textEditingValue) {
         if (textEditingValue.text.isEmpty) {
@@ -416,8 +479,8 @@ class _PlotInputFormState extends State<PlotInputForm> {
       },
       onSelected: (String selection) {
         setState(() {
-          if (_crops.isNotEmpty) {
-            _crops.last['stage'] = selection;
+          if (index < _crops.length) {
+            _crops[index]['stage'] = selection;
           }
         });
       },
@@ -425,11 +488,11 @@ class _PlotInputFormState extends State<PlotInputForm> {
         return TextFormField(
           controller: textEditingController,
           focusNode: focusNode,
-          decoration: _inputDecoration('Crop Stage (e.g., Flowering)'),
+          decoration: _inputDecoration('Crop Stage ${index + 1} (e.g., Flowering)'),
           onFieldSubmitted: (value) {
-            if (value.isNotEmpty && _crops.isNotEmpty) {
+            if (value.isNotEmpty && index < _crops.length) {
               setState(() {
-                _crops.last['stage'] = value;
+                _crops[index]['stage'] = value;
               });
             }
             onFieldSubmitted();
@@ -444,14 +507,6 @@ class _PlotInputFormState extends State<PlotInputForm> {
         enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
         focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.green)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      );
-
-  Widget _nutrientField(String label, double? value, Function(double?) onSaved) => TextFormField(
-        decoration: _inputDecoration(label),
-        keyboardType: TextInputType.number,
-        validator: (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Enter a valid number' : null,
-        onSaved: (v) => onSaved(v != null && v.isNotEmpty ? double.parse(v) : null),
-        initialValue: value?.toString(),
       );
 
   Future<Map<String, dynamic>?> _showInterventionDialog() async {

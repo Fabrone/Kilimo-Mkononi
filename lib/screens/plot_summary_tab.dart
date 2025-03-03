@@ -15,8 +15,7 @@ class PlotSummaryTab extends StatefulWidget {
 class _PlotSummaryTabState extends State<PlotSummaryTab> {
   @override
   Widget build(BuildContext context) {
-    // Adjust plotIds to match Firestore format
-    final adjustedPlotIds = widget.plotIds.map((id) => '${widget.userId}_$id').toList();
+    final prefixedPlotIds = widget.plotIds.map((id) => '${widget.userId}_$id').toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -31,13 +30,11 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: adjustedPlotIds.isEmpty
-            ? null
-            : FirebaseFirestore.instance
-                .collection('fielddata')
-                .where('userId', isEqualTo: widget.userId)
-                .where('plotId', whereIn: adjustedPlotIds)
-                .snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('fielddata')
+            .where('userId', isEqualTo: widget.userId)
+            .where(FieldPath.documentId, whereIn: prefixedPlotIds)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -145,8 +142,8 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
 
   Future<void> _editPlot(BuildContext context, FieldData plot) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final TextEditingController cropController = TextEditingController();
-    final TextEditingController stageController = TextEditingController();
+    final List<TextEditingController> cropControllers = plot.crops.map((c) => TextEditingController(text: c['type'])).toList();
+    final List<TextEditingController> stageControllers = plot.crops.map((c) => TextEditingController(text: c['stage'])).toList();
     final TextEditingController areaController = TextEditingController(text: plot.area?.toString());
     final TextEditingController nitrogenController = TextEditingController(text: plot.npk['N']?.toString());
     final TextEditingController phosphorusController = TextEditingController(text: plot.npk['P']?.toString());
@@ -168,38 +165,33 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: cropController,
-                  decoration: const InputDecoration(labelText: 'Add Crop Type'),
-                  onSubmitted: (value) {
-                    if (value.isNotEmpty) {
+                ...cropControllers.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  return Column(
+                    children: [
+                      TextField(
+                        controller: cropControllers[idx],
+                        decoration: InputDecoration(labelText: 'Crop Type ${idx + 1}'),
+                      ),
+                      TextField(
+                        controller: stageControllers[idx],
+                        decoration: InputDecoration(labelText: 'Crop Stage ${idx + 1}'),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  );
+                }),
+                if (plot.plotId.contains('Intercrop'))
+                  ElevatedButton(
+                    onPressed: () {
                       setState(() {
-                        editedCrops.add({'type': value, 'stage': ''});
-                        cropController.clear();
+                        cropControllers.add(TextEditingController());
+                        stageControllers.add(TextEditingController());
+                        editedCrops.add({'type': '', 'stage': ''});
                       });
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: stageController,
-                  decoration: const InputDecoration(labelText: 'Crop Stage'),
-                  onSubmitted: (value) {
-                    if (value.isNotEmpty && editedCrops.isNotEmpty) {
-                      setState(() {
-                        editedCrops.last['stage'] = value;
-                        stageController.clear();
-                      });
-                    }
-                  },
-                ),
-                Wrap(
-                  spacing: 8,
-                  children: editedCrops.map((c) => Chip(
-                    label: Text('${c['type']} (${c['stage']})'),
-                    onDeleted: () => setState(() => editedCrops.remove(c)),
-                  )).toList(),
-                ),
+                    },
+                    child: const Text('+ Additional Crop'),
+                  ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: areaController,
@@ -261,9 +253,13 @@ class _PlotSummaryTabState extends State<PlotSummaryTab> {
           TextButton(
             onPressed: () {
               editedMicroNutrients = microNutrientControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
-              if (cropController.text.isNotEmpty && !editedCrops.any((c) => c['type'] == cropController.text)) {
-                editedCrops.add({'type': cropController.text, 'stage': stageController.text});
-              }
+              editedCrops = cropControllers.asMap().entries.map((entry) {
+                int idx = entry.key;
+                return {
+                  'type': cropControllers[idx].text,
+                  'stage': stageControllers[idx].text,
+                };
+              }).where((c) => c['type']!.isNotEmpty).toList();
               Navigator.pop(dialogContext, true);
             },
             child: const Text('Save'),
