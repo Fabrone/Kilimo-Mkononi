@@ -47,14 +47,17 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    logger.i('HomePage initState called');
     _fetchUserData();
-    _listenToUserAndAdminStatus(); // Updated real-time listener
+    _listenToUserAndAdminStatus();
+    _listenToAuthState(); // New: Listen to auth state changes
   }
 
   Future<void> _fetchUserData() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       logger.i('Fetching data for user: ${user.email}, UID: ${user.uid}');
+      _userId = user.uid; // Set immediately to avoid null during initial load
       DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
           .collection('Users')
           .doc(user.uid)
@@ -94,7 +97,6 @@ class _HomePageState extends State<HomePage> {
         }
 
         setState(() {
-          _userId = user.uid; // Store the UID here
           _userData = appUser.toMap();
           _profileImageBytes = decodedImage;
           _isMainAdmin = isAdmin;
@@ -102,17 +104,45 @@ class _HomePageState extends State<HomePage> {
         });
       } else {
         logger.w('No user data found in Firestore for UID: ${user.uid}');
+        setState(() {
+          _userId = user.uid; // Ensure _userId is set even without a Users doc
+        });
       }
     } else {
       logger.w('No user logged in');
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 
-  // Real-time listener for both user status and admin status
+  // New method to check and refresh user status
+  void _listenToAuthState() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null) {
+        logger.i('Auth state changed - User logged in: ${user.uid}');
+        setState(() {
+          _userId = user.uid; // Refresh _userId on auth state change
+        });
+        _fetchUserData(); // Re-fetch data to ensure consistency
+      } else {
+        logger.w('Auth state changed - No user logged in');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+      }
+    });
+  }
+
   void _listenToUserAndAdminStatus() {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Listen to user status (e.g., isDisabled)
       FirebaseFirestore.instance
           .collection('Users')
           .doc(user.uid)
@@ -138,7 +168,6 @@ class _HomePageState extends State<HomePage> {
         }
       });
 
-      // Listen to admin status
       FirebaseFirestore.instance
           .collection('Admins')
           .doc(user.uid)
@@ -158,7 +187,7 @@ class _HomePageState extends State<HomePage> {
     try {
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
-      Navigator.pop(context); // Close drawer
+      Navigator.pop(context);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
@@ -179,46 +208,28 @@ class _HomePageState extends State<HomePage> {
         child: AppBar(
           title: const Text(
             'KilimoMkononi',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           backgroundColor: const Color.fromARGB(255, 3, 39, 4),
           leading: Builder(
             builder: (context) => IconButton(
-              icon: const Icon(
-                Icons.menu,
-                color: Colors.white,
-                size: 40,
-              ),
+              icon: const Icon(Icons.menu, color: Colors.white, size: 40),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
           actions: [
             IconButton(
-              icon: const Icon(
-                Icons.notifications,
-                color: Colors.white,
-                size: 40,
-              ),
+              icon: const Icon(Icons.notifications, color: Colors.white, size: 40),
               onPressed: () {
-                // Notification functionality
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const NotificationsSettingsScreen()),
-                );                
+                );
               },
             ),
             IconButton(
-              icon: const Icon(
-                Icons.search,
-                color: Colors.white,
-                size: 40,
-              ),
-              onPressed: () {
-                // Search functionality
-              },
+              icon: const Icon(Icons.search, color: Colors.white, size: 40),
+              onPressed: () {},
             ),
           ],
         ),
@@ -290,10 +301,7 @@ class _HomePageState extends State<HomePage> {
                 margin: const EdgeInsets.all(5.0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10.0),
-                  image: DecorationImage(
-                    image: AssetImage(image),
-                    fit: BoxFit.cover,
-                  ),
+                  image: DecorationImage(image: AssetImage(image), fit: BoxFit.cover),
                 ),
               ),
               Positioned(
@@ -302,10 +310,7 @@ class _HomePageState extends State<HomePage> {
                 child: Container(
                   color: Colors.black54,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  child: Text(
-                    labels[index],
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
+                  child: Text(labels[index], style: const TextStyle(color: Colors.white, fontSize: 16)),
                 ),
               ),
             ],
@@ -323,16 +328,10 @@ class _HomePageState extends State<HomePage> {
         shrinkWrap: true,
         children: [
           _buildClickableCard('Farming Tips', Icons.lightbulb, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => FarmingTipsWidget()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => FarmingTipsWidget()));
           }),
           _buildClickableCard('Market Prices', Icons.shopping_cart, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => MarketPricePredictionWidget()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => MarketPricePredictionWidget()));
           }),
         ],
       ),
@@ -376,22 +375,10 @@ class _HomePageState extends State<HomePage> {
   Widget _buildBottomNavigationBar() {
     return BottomNavigationBar(
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.book),
-          label: 'Manuals',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.group),
-          label: 'Community',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.article),
-          label: 'Blog',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Manuals'),
+        BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Community'),
+        BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Blog'),
       ],
       currentIndex: _selectedIndex,
       selectedItemColor: const Color.fromARGB(255, 3, 39, 4),
@@ -411,15 +398,10 @@ class _HomePageState extends State<HomePage> {
         children: [
           GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen()));
             },
             child: UserAccountsDrawerHeader(
-              decoration: const BoxDecoration(
-                color: Color.fromARGB(255, 3, 39, 4),
-              ),
+              decoration: const BoxDecoration(color: Color.fromARGB(255, 3, 39, 4)),
               accountName: Text(
                 _userData?['fullName'] ?? 'Loading...',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -447,47 +429,34 @@ class _HomePageState extends State<HomePage> {
             setState(() {});
           }),
           _buildDrawerItem(Icons.cloud, 'Weather Forecast', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const WeatherScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherScreen()));
           }),
           _buildDrawerItem(Icons.input, 'Field Data Input', () {
-            if (_userId != null) { 
+            logger.i('Navigating to FieldDataInputPage, userId: $_userId');
+            if (_userId != null) {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => FieldDataInputPage(userId: _userId!)),
               );
             } else {
+              logger.w('User ID is null, attempting refresh');
+              _fetchUserData(); // Retry fetching
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User ID not available. Please log in again.')),
+                const SnackBar(content: Text('User ID not available. Retrying...')),
               );
             }
           }),
           _buildDrawerItem(Icons.pest_control, 'Pest Management', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()));
           }),
           _buildDrawerItem(Icons.supervisor_account, 'Farm Management', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const FarmManagementScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const FarmManagementScreen()));
           }),
           _buildDrawerItem(Icons.book, 'Manuals', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ManualsScreen()),
-            );            
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ManualsScreen()));
           }),
           _buildDrawerItem(Icons.settings, 'Settings', () {
-            // Navigate to Settings
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
-            );            
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
           }),
           _buildDrawerItem(Icons.logout, 'Logout', _handleLogout),
         ],
