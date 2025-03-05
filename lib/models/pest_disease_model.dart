@@ -702,7 +702,7 @@ class PestIntervention {
   final double? area;
   final String areaUnit;
   final Timestamp timestamp;
-  final String userId; // Added userId field
+  final String userId; 
 
   PestIntervention({
     this.id,
@@ -715,7 +715,7 @@ class PestIntervention {
     this.area,
     required this.areaUnit,
     required this.timestamp,
-    required this.userId, // Make userId required
+    required this.userId, 
   });
 
   Map<String, dynamic> toMap() => {
@@ -728,7 +728,7 @@ class PestIntervention {
         'area': area,
         'areaUnit': areaUnit,
         'timestamp': timestamp,
-        'userId': userId, // Include userId in the map
+        'userId': userId, 
       };
 
   factory PestIntervention.fromMap(Map<String, dynamic> map, String id) => PestIntervention(

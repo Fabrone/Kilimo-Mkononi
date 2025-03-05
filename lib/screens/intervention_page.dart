@@ -64,7 +64,7 @@ class _InterventionPageState extends State<InterventionPage> {
       area: _areaController.text.isNotEmpty ? double.parse(_areaController.text) : null,
       areaUnit: _useSQM ? 'SQM' : 'Acres',
       timestamp: Timestamp.now(),
-      userId: user.uid, // Add the authenticated user's UID
+      userId: user.uid, 
     );
 
     try {
