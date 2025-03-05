@@ -91,6 +91,7 @@ flutter:
     - assets/soil.png
     - assets/weather_forecast.jpg
     - assets/pests/
+    - assets/diseases/
 
   #   - images/a_dot_ham.jpeg
 
