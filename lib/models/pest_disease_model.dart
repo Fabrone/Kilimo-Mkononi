@@ -702,6 +702,7 @@ class PestIntervention {
   final double? area;
   final String areaUnit;
   final Timestamp timestamp;
+  final String userId; // Added userId field
 
   PestIntervention({
     this.id,
@@ -714,6 +715,7 @@ class PestIntervention {
     this.area,
     required this.areaUnit,
     required this.timestamp,
+    required this.userId, // Make userId required
   });
 
   Map<String, dynamic> toMap() => {
@@ -726,6 +728,7 @@ class PestIntervention {
         'area': area,
         'areaUnit': areaUnit,
         'timestamp': timestamp,
+        'userId': userId, // Include userId in the map
       };
 
   factory PestIntervention.fromMap(Map<String, dynamic> map, String id) => PestIntervention(
@@ -739,6 +742,7 @@ class PestIntervention {
         area: map['area'] as double?,
         areaUnit: map['areaUnit'] as String,
         timestamp: map['timestamp'] as Timestamp,
+        userId: map['userId'] as String,
       );
 
   PestIntervention copyWith({
@@ -752,6 +756,7 @@ class PestIntervention {
     double? area,
     String? areaUnit,
     Timestamp? timestamp,
+    String? userId,
   }) => PestIntervention(
         id: id ?? this.id,
         pestName: pestName ?? this.pestName,
@@ -763,5 +768,6 @@ class PestIntervention {
         area: area ?? this.area,
         areaUnit: areaUnit ?? this.areaUnit,
         timestamp: timestamp ?? this.timestamp,
+        userId: userId ?? this.userId,
       );
 }
