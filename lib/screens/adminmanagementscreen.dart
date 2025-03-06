@@ -1,10 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
-import 'package:csv/csv.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'dart:convert';
 import 'package:kilimomkononi/screens/collection_management_screen.dart';
 
@@ -19,7 +17,6 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   final logger = Logger(printer: PrettyPrinter());
   final TextEditingController _uidController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  final List<String> _selectedUserIds = [];
   List<String> _allCollections = [];
 
   @override
@@ -31,25 +28,25 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   Future<void> _fetchCollections() async {
     try {
       setState(() {
-        _allCollections = ['Users', 'marketdata', 'fielddata', 'pestdata', 'diseasedata', 'Admins', 'admin_logs'];
+        _allCollections = ['Users', 'marketdata', 'fielddata', 'pestdata', 'diseasedata', 'Admins', 'admin_logs', 'Analysts', 'PriceAnalysts'];
       });
     } catch (e) {
       logger.e('Error fetching collections: $e');
     }
   }
 
-  Future<void> _assignAdminRole(String uid) async {
+  Future<void> _assignRole(String uid, String collection) async {
     try {
       final userDoc = await FirebaseFirestore.instance.collection('Users').doc(uid).get();
       if (!userDoc.exists) throw 'User not found';
-      await FirebaseFirestore.instance.collection('Admins').doc(uid).set({'added': true});
-      _logActivity('Assigned admin role to $uid');
+      await FirebaseFirestore.instance.collection(collection).doc(uid).set({'added': true});
+      _logActivity('Assigned $collection role to $uid');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admin role assigned successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${collection.replaceAll('s', '')} role assigned successfully!')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error assigning admin role: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error assigning role: $e')));
       }
     }
   }
@@ -93,63 +90,6 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending password reset: $e')));
-      }
-    }
-  }
-
-  Future<void> _bulkDisableUsers() async {
-    try {
-      for (String uid in _selectedUserIds) {
-        await FirebaseFirestore.instance.collection('Users').doc(uid).update({'isDisabled': true});
-      }
-      _logActivity('Bulk disabled users: ${_selectedUserIds.join(', ')}');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selected users disabled successfully!')));
-      }
-      setState(() => _selectedUserIds.clear());
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error bulk disabling users: $e')));
-      }
-    }
-  }
-
-  Future<void> _bulkDeleteUsers() async {
-    try {
-      for (String uid in _selectedUserIds) {
-        await FirebaseFirestore.instance.collection('Users').doc(uid).delete();
-      }
-      _logActivity('Bulk deleted users: ${_selectedUserIds.join(', ')}');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selected users deleted from Firestore!')));
-      }
-      setState(() => _selectedUserIds.clear());
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error bulk deleting users: $e')));
-      }
-    }
-  }
-
-  Future<void> _exportCollectionToCsv(String collectionName) async {
-    try {
-      final snapshot = await FirebaseFirestore.instance.collection(collectionName).get();
-      if (snapshot.docs.isEmpty) throw 'No data to export';
-      List<List<dynamic>> csvData = [snapshot.docs.first.data().keys.toList()];
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        csvData.add(data.values.map((v) => v.toString()).toList());
-      }
-      String csv = const ListToCsvConverter().convert(csvData);
-      final directory = await getExternalStorageDirectory();
-      final file = File('${directory!.path}/${collectionName}_export_${DateTime.now().millisecondsSinceEpoch}.csv');
-      await file.writeAsString(csv);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported to ${file.path}')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error exporting $collectionName: $e')));
       }
     }
   }
@@ -248,10 +188,9 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 1.5,
       children: [
-        _buildOptionCard('Assign Admin', Icons.person_add, () => _showAssignAdminDialog()),
-        _buildOptionCard('Export Users', Icons.file_download, () => _exportCollectionToCsv('Users')),
-        _buildOptionCard('Bulk Disable', Icons.block, _selectedUserIds.isNotEmpty ? _bulkDisableUsers : null),
-        _buildOptionCard('Bulk Delete', Icons.delete_sweep, _selectedUserIds.isNotEmpty ? _bulkDeleteUsers : null),
+        _buildOptionCard('Assign Admin', Icons.person_add, () => _showAssignRoleDialog('Admins')),
+        _buildOptionCard('Assign Analyst', Icons.analytics, () => _showAssignRoleDialog('Analysts')),
+        _buildOptionCard('Add Price Analyst', Icons.monetization_on, () => _showAssignRoleDialog('PriceAnalysts')),
         _buildOptionCard('Manage Users', Icons.people, () => _showManageUsersScreen()),
       ],
     );
@@ -283,18 +222,39 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     );
   }
 
-  void _showAssignAdminDialog() {
+  void _showAssignRoleDialog(String collection) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Assign Admin Role'),
-        content: TextField(
-          controller: _uidController,
-          decoration: InputDecoration(
-            labelText: 'Enter User UID',
-            hintText: 'e.g., abc123xyz789',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+        title: Text('Assign ${collection.replaceAll('s', '')} Role'),
+        content: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _uidController,
+                decoration: InputDecoration(
+                  labelText: 'Enter User UID',
+                  hintText: 'e.g., abc123xyz789',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.paste),
+              onPressed: () async {
+                final clipboardData = await Clipboard.getData('text/plain');
+                if (clipboardData != null && clipboardData.text != null) {
+                  _uidController.text = clipboardData.text!;
+                }
+              },
+              tooltip: 'Paste UID',
+            ),
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () => _showUserListDialog(),
+              tooltip: 'Select User',
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -307,7 +267,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a UID')));
                 return;
               }
-              _assignAdminRole(_uidController.text);
+              _assignRole(_uidController.text, collection);
               Navigator.pop(context);
               _uidController.clear();
             },
@@ -318,88 +278,221 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     );
   }
 
-  void _showManageUsersScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Manage Users', style: TextStyle(color: Colors.white)),
-            backgroundColor: const Color.fromARGB(255, 3, 39, 4),
-            foregroundColor: Colors.white,
-          ),
-          body: StreamBuilder<QuerySnapshot>(
+  void _showUserListDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select User'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('Users').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return Text('Error: ${snapshot.error}');
               }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No users found.'));
+                return const Text('No users found.');
               }
-
               final users = snapshot.data!.docs;
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Profile')),
-                      DataColumn(label: Text('Full Name')),
-                      DataColumn(label: Text('Email')),
-                      DataColumn(label: Text('Farm Location')),
-                      DataColumn(label: Text('Phone Number')),
-                      DataColumn(label: Text('Gender')),
-                      DataColumn(label: Text('National ID')),
-                      DataColumn(label: Text('Date of Birth')),
-                      DataColumn(label: Text('Actions')),
-                    ],
-                    rows: users.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final uid = doc.id;
-                      return DataRow(cells: [
-                        DataCell(
-                          data['profileImage'] != null
-                              ? Image.memory(
-                                  base64Decode(data['profileImage']),
-                                  width: 28,
-                                  height: 28,
-                                  fit: BoxFit.cover,
-                                )
-                              : const Icon(Icons.person, size: 28),
-                        ),
-                        DataCell(Text(data['fullName'] ?? 'N/A')),
-                        DataCell(Text(data['email'] ?? 'N/A')),
-                        DataCell(Text(data['farmLocation'] ?? 'N/A')),
-                        DataCell(Text(data['phoneNumber'] ?? 'N/A')),
-                        DataCell(Text(data['gender'] ?? 'N/A')),
-                        DataCell(Text(data['nationalId'] ?? 'N/A')),
-                        DataCell(Text(data['dateOfBirth'] ?? 'N/A')),
-                        DataCell(
-                          PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'Disable') _disableUser(uid);
-                              if (value == 'Delete') _deleteUser(uid);
-                              if (value == 'Reset Password') _resetPassword(data['email'] ?? '');
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(value: 'Disable', child: Text('Disable User')),
-                              const PopupMenuItem(value: 'Delete', child: Text('Delete User')),
-                              const PopupMenuItem(value: 'Reset Password', child: Text('Reset Password')),
-                            ],
-                            icon: const Icon(Icons.more_vert),
-                          ),
-                        ),
-                      ]);
-                    }).toList(),
-                  ),
-                ),
+              return ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index].data() as Map<String, dynamic>;
+                  final uid = users[index].id;
+                  return ListTile(
+                    title: Text(user['fullName'] ?? 'No Name'),
+                    subtitle: Text('UID: $uid'),
+                    onTap: () {
+                      _uidController.text = uid;
+                      Navigator.pop(context);
+                    },
+                  );
+                },
               );
             },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManageUsersScreen() {
+    String? bulkAction;
+    List<String> selectedUids = [];
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StatefulBuilder(
+          builder: (context, setState) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Manage Users', style: TextStyle(color: Colors.white)),
+              backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+              foregroundColor: Colors.white,
+              actions: [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.menu),
+                  onSelected: (value) {
+                    setState(() {
+                      bulkAction = value;
+                      selectedUids.clear();
+                    });
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'Bulk Disable', child: Text('Bulk Disable')),
+                    const PopupMenuItem(value: 'Bulk Delete', child: Text('Bulk Delete')),
+                    const PopupMenuItem(value: 'Bulk Reset Password', child: Text('Bulk Reset Password')),
+                  ],
+                ),
+              ],
+            ),
+            body: Column(
+              children: [
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('Users').snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No users found.'));
+                      }
+
+                      final users = snapshot.data!.docs;
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: DataTable(
+                            columns: [
+                              if (bulkAction != null) const DataColumn(label: Text('Select')),
+                              const DataColumn(label: Text('Profile')),
+                              const DataColumn(label: Text('Full Name')),
+                              const DataColumn(label: Text('Email')),
+                              const DataColumn(label: Text('Farm Location')),
+                              const DataColumn(label: Text('Phone Number')),
+                              const DataColumn(label: Text('Gender')),
+                              const DataColumn(label: Text('National ID')),
+                              const DataColumn(label: Text('Date of Birth')),
+                              const DataColumn(label: Text('Actions')),
+                            ],
+                            rows: users.map((doc) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              final uid = doc.id;
+                              final isAdmin = FirebaseAuth.instance.currentUser?.uid == uid;
+                              return DataRow(cells: [
+                                if (bulkAction != null)
+                                  DataCell(
+                                    Checkbox(
+                                      value: selectedUids.contains(uid),
+                                      onChanged: isAdmin
+                                          ? null
+                                          : (value) {
+                                              setState(() {
+                                                if (value == true) {
+                                                  selectedUids.add(uid);
+                                                } else {
+                                                  selectedUids.remove(uid);
+                                                }
+                                              });
+                                            },
+                                    ),
+                                  ),
+                                DataCell(
+                                  data['profileImage'] != null
+                                      ? Image.memory(
+                                          base64Decode(data['profileImage']),
+                                          width: 28,
+                                          height: 28,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : const Icon(Icons.person, size: 28),
+                                ),
+                                DataCell(Text(data['fullName'] ?? 'N/A')),
+                                DataCell(Text(data['email'] ?? 'N/A')),
+                                DataCell(Text(data['farmLocation'] ?? 'N/A')),
+                                DataCell(Text(data['phoneNumber'] ?? 'N/A')),
+                                DataCell(Text(data['gender'] ?? 'N/A')),
+                                DataCell(Text(data['nationalId'] ?? 'N/A')),
+                                DataCell(Text(data['dateOfBirth'] ?? 'N/A')),
+                                DataCell(
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'Disable') _disableUser(uid);
+                                      if (value == 'Delete') _deleteUser(uid);
+                                      if (value == 'Reset Password') _resetPassword(data['email'] ?? '');
+                                      if (value == 'Copy UID') {
+                                        Clipboard.setData(ClipboardData(text: uid));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('UID copied to clipboard!')),
+                                        );
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(value: 'Disable', child: Text('Disable User')),
+                                      const PopupMenuItem(value: 'Delete', child: Text('Delete User')),
+                                      const PopupMenuItem(value: 'Reset Password', child: Text('Reset Password')),
+                                      const PopupMenuItem(value: 'Copy UID', child: Text('Copy UID')),
+                                    ],
+                                    icon: const Icon(Icons.more_vert),
+                                  ),
+                                ),
+                              ]);
+                            }).toList(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (bulkAction != null && selectedUids.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (bulkAction == 'Bulk Disable') {
+                          for (var uid in selectedUids) {
+                            await _disableUser(uid);
+                          }
+                        } else if (bulkAction == 'Bulk Delete') {
+                          for (var uid in selectedUids) {
+                            await _deleteUser(uid);
+                          }
+                        } else if (bulkAction == 'Bulk Reset Password') {
+                          for (var uid in selectedUids) {
+                            final doc = await FirebaseFirestore.instance.collection('Users').doc(uid).get();
+                            await _resetPassword(doc['email'] ?? '');
+                          }
+                        }
+                        setState(() {
+                          bulkAction = null;
+                          selectedUids.clear();
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text('Execute $bulkAction'),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -454,20 +547,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                 itemCount: users.length,
                 itemBuilder: (context, index) {
                   final user = users[index].data() as Map<String, dynamic>;
-                  final uid = users[index].id;
                   return ListTile(
-                    leading: Checkbox(
-                      value: _selectedUserIds.contains(uid),
-                      onChanged: (bool? value) {
-                        setState(() {
-                          if (value == true) {
-                            _selectedUserIds.add(uid);
-                          } else {
-                            _selectedUserIds.remove(uid);
-                          }
-                        });
-                      },
-                    ),
                     title: Text(user['fullName'] ?? 'No Name'),
                     subtitle: Text('Email: ${user['email'] ?? 'N/A'}'),
                   );
