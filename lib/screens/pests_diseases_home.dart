@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:kilimomkononi/screens/pest_management.dart';
 import 'package:kilimomkononi/screens/disease_management_page.dart';
+import 'package:kilimomkononi/screens/symptom_checker_page.dart';
 
 class PestDiseaseHomePage extends StatelessWidget {
   const PestDiseaseHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final scaffoldMessenger = ScaffoldMessenger.of(context); 
+    ScaffoldMessenger.of(context); 
 
     return Scaffold(
       appBar: AppBar(
@@ -54,11 +55,10 @@ class PestDiseaseHomePage extends StatelessWidget {
               context,
               'Identify Issue by Symptoms',
               Icons.search,
-              () {
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Symptom Identification coming soon!')),
-                );
-              }, // Placeholder
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SymptomCheckerPage()),
+              ),
             ),
           ],
         ),
