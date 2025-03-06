@@ -5,6 +5,7 @@ import 'package:logger/logger.dart';
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:kilimomkononi/screens/collection_management_screen.dart';
 
 class AdminManagementScreen extends StatefulWidget {
@@ -18,11 +19,24 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   final logger = Logger(printer: PrettyPrinter());
   final TextEditingController _uidController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  String _sortField = 'fullName';
-  bool _sortAscending = true;
   final List<String> _selectedUserIds = [];
-  final List<String> _keyCollections = ['Users', 'marketdata', 'fielddata']; // List all collections here
-  String _searchQuery = '';
+  List<String> _allCollections = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCollections();
+  }
+
+  Future<void> _fetchCollections() async {
+    try {
+      setState(() {
+        _allCollections = ['Users', 'marketdata', 'fielddata', 'pestdata', 'diseasedata', 'Admins', 'admin_logs'];
+      });
+    } catch (e) {
+      logger.e('Error fetching collections: $e');
+    }
+  }
 
   Future<void> _assignAdminRole(String uid) async {
     try {
@@ -33,12 +47,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admin role assigned successfully!')));
       }
-      logger.i('Admin role assigned to UID: $uid');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error assigning admin role: $e')));
       }
-      logger.e('Error assigning admin role: $e');
     }
   }
 
@@ -49,12 +61,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User disabled successfully!')));
       }
-      logger.i('User disabled: $uid');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error disabling user: $e')));
       }
-      logger.e('Error disabling user: $e');
     }
   }
 
@@ -65,12 +75,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User deleted from Firestore!')));
       }
-      logger.i('User deleted from Firestore: $uid');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting user: $e')));
       }
-      logger.e('Error deleting user: $e');
     }
   }
 
@@ -82,12 +90,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password reset email sent!')));
       }
-      logger.i('Password reset email sent to: $email');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending password reset: $e')));
       }
-      logger.e('Error sending password reset: $e');
     }
   }
 
@@ -105,7 +111,6 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error bulk disabling users: $e')));
       }
-      logger.e('Error bulk disabling users: $e');
     }
   }
 
@@ -123,7 +128,6 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error bulk deleting users: $e')));
       }
-      logger.e('Error bulk deleting users: $e');
     }
   }
 
@@ -162,16 +166,6 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     }
   }
 
-  int _calculateAge(Timestamp dob) {
-    DateTime birthDate = dob.toDate();
-    DateTime today = DateTime.now();
-    int age = today.year - birthDate.year;
-    if (today.month < birthDate.month || (today.month == birthDate.month && today.day < birthDate.day)) {
-      age--;
-    }
-    return age;
-  }
-
   @override
   void dispose() {
     _uidController.dispose();
@@ -183,7 +177,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Management', style: TextStyle(color: Colors.white)),
+        title: const Text('Admin Dashboard', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color.fromARGB(255, 3, 39, 4),
         foregroundColor: Colors.white,
       ),
@@ -194,11 +188,6 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Admin Dashboard',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 3, 39, 4)),
-              ),
-              const SizedBox(height: 20),
               _buildCollectionStats(),
               const SizedBox(height: 20),
               _buildManagementOptions(),
@@ -224,25 +213,28 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
           children: [
             const Text('Collection Statistics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            ..._keyCollections.map((collection) => StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection(collection).snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const CircularProgressIndicator();
-                    }
-                    final count = snapshot.data?.docs.length ?? 0;
-                    return ListTile(
-                      title: Text(collection, style: const TextStyle(fontSize: 16)),
-                      trailing: Text('$count', style: const TextStyle(fontSize: 16, color: Color.fromARGB(255, 3, 39, 4))),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CollectionManagementScreen(collectionName: collection),
+            if (_allCollections.isEmpty)
+              const CircularProgressIndicator()
+            else
+              ..._allCollections.map((collection) => StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection(collection).snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const CircularProgressIndicator();
+                      }
+                      final count = snapshot.data?.docs.length ?? 0;
+                      return ListTile(
+                        title: Text(collection, style: const TextStyle(fontSize: 16)),
+                        trailing: Text('$count', style: const TextStyle(fontSize: 16, color: Color.fromARGB(255, 3, 39, 4))),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CollectionManagementScreen(collectionName: collection),
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                )),
+                      );
+                    },
+                  )),
           ],
         ),
       ),
@@ -260,6 +252,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
         _buildOptionCard('Export Users', Icons.file_download, () => _exportCollectionToCsv('Users')),
         _buildOptionCard('Bulk Disable', Icons.block, _selectedUserIds.isNotEmpty ? _bulkDisableUsers : null),
         _buildOptionCard('Bulk Delete', Icons.delete_sweep, _selectedUserIds.isNotEmpty ? _bulkDeleteUsers : null),
+        _buildOptionCard('Manage Users', Icons.people, () => _showManageUsersScreen()),
       ],
     );
   }
@@ -325,6 +318,94 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     );
   }
 
+  void _showManageUsersScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Manage Users', style: TextStyle(color: Colors.white)),
+            backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+            foregroundColor: Colors.white,
+          ),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('Users').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text('No users found.'));
+              }
+
+              final users = snapshot.data!.docs;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Profile')),
+                      DataColumn(label: Text('Full Name')),
+                      DataColumn(label: Text('Email')),
+                      DataColumn(label: Text('Farm Location')),
+                      DataColumn(label: Text('Phone Number')),
+                      DataColumn(label: Text('Gender')),
+                      DataColumn(label: Text('National ID')),
+                      DataColumn(label: Text('Date of Birth')),
+                      DataColumn(label: Text('Actions')),
+                    ],
+                    rows: users.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final uid = doc.id;
+                      return DataRow(cells: [
+                        DataCell(
+                          data['profileImage'] != null
+                              ? Image.memory(
+                                  base64Decode(data['profileImage']),
+                                  width: 28,
+                                  height: 28,
+                                  fit: BoxFit.cover,
+                                )
+                              : const Icon(Icons.person, size: 28),
+                        ),
+                        DataCell(Text(data['fullName'] ?? 'N/A')),
+                        DataCell(Text(data['email'] ?? 'N/A')),
+                        DataCell(Text(data['farmLocation'] ?? 'N/A')),
+                        DataCell(Text(data['phoneNumber'] ?? 'N/A')),
+                        DataCell(Text(data['gender'] ?? 'N/A')),
+                        DataCell(Text(data['nationalId'] ?? 'N/A')),
+                        DataCell(Text(data['dateOfBirth'] ?? 'N/A')),
+                        DataCell(
+                          PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'Disable') _disableUser(uid);
+                              if (value == 'Delete') _deleteUser(uid);
+                              if (value == 'Reset Password') _resetPassword(data['email'] ?? '');
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(value: 'Disable', child: Text('Disable User')),
+                              const PopupMenuItem(value: 'Delete', child: Text('Delete User')),
+                              const PopupMenuItem(value: 'Reset Password', child: Text('Reset Password')),
+                            ],
+                            icon: const Icon(Icons.more_vert),
+                          ),
+                        ),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildUserList() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,39 +421,15 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
               icon: const Icon(Icons.clear),
               onPressed: () {
                 _searchController.clear();
-                setState(() => _searchQuery = '');
+                setState(() {});
               },
             ),
           ),
-          onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+          onChanged: (value) => setState(() {}),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            DropdownButton<String>(
-              value: _sortField,
-              items: const [
-                DropdownMenuItem(value: 'fullName', child: Text('Name')),
-                DropdownMenuItem(value: 'email', child: Text('Email')),
-                DropdownMenuItem(value: 'age', child: Text('Age')),
-                DropdownMenuItem(value: 'gender', child: Text('Gender')),
-                DropdownMenuItem(value: 'phoneNumber', child: Text('Phone')),
-                DropdownMenuItem(value: 'location', child: Text('Location')),
-                DropdownMenuItem(value: 'nationalId', child: Text('National ID')),
-              ],
-              onChanged: (value) => setState(() => _sortField = value!),
-            ),
-            IconButton(
-              icon: Icon(_sortAscending ? Icons.arrow_upward : Icons.arrow_downward),
-              onPressed: () => setState(() => _sortAscending = !_sortAscending),
-            ),
-          ],
-        ),
         StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('Users')
-              .orderBy(_sortField == 'age' ? 'dateOfBirth' : _sortField, descending: !_sortAscending)
-              .snapshots(),
+          stream: FirebaseFirestore.instance.collection('Users').snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -387,21 +444,18 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
               final user = doc.data() as Map<String, dynamic>;
               final fullName = user['fullName']?.toString().toLowerCase() ?? '';
               final email = user['email']?.toString().toLowerCase() ?? '';
-              return fullName.contains(_searchQuery) || email.contains(_searchQuery);
+              return fullName.contains(_searchController.text.toLowerCase()) ||
+                  email.contains(_searchController.text.toLowerCase());
             }).toList();
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: users.length,
-              itemBuilder: (context, index) {
-                final user = users[index].data() as Map<String, dynamic>;
-                final uid = users[index].id;
-                final age = user['dateOfBirth'] != null ? _calculateAge(user['dateOfBirth']) : 'N/A';
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
+            return SizedBox(
+              height: 300,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index].data() as Map<String, dynamic>;
+                  final uid = users[index].id;
+                  return ListTile(
                     leading: Checkbox(
                       value: _selectedUserIds.contains(uid),
                       onChanged: (bool? value) {
@@ -414,43 +468,11 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
                         });
                       },
                     ),
-                    title: Text(user['fullName'] ?? 'No Name', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Email: ${user['email'] ?? 'N/A'}'),
-                        Text('Age: $age'),
-                        Text('Gender: ${user['gender'] ?? 'N/A'}'),
-                        Text('Phone: ${user['phoneNumber'] ?? 'N/A'}'),
-                        Text('Location: ${user['location'] ?? 'N/A'}'),
-                        Text('National ID: ${user['nationalId'] ?? 'N/A'}'),
-                        Text('Status: ${user['isDisabled'] == true ? 'Disabled' : 'Active'}'),
-                        Text('Role: ${user['role'] ?? 'user'}'),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.block, color: Colors.orange),
-                          onPressed: () => _disableUser(uid),
-                          tooltip: 'Disable User',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteUser(uid),
-                          tooltip: 'Delete User',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.lock_reset, color: Colors.blue),
-                          onPressed: () => _resetPassword(user['email'] ?? ''),
-                          tooltip: 'Reset Password',
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                    title: Text(user['fullName'] ?? 'No Name'),
+                    subtitle: Text('Email: ${user['email'] ?? 'N/A'}'),
+                  );
+                },
+              ),
             );
           },
         ),
@@ -464,37 +486,39 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       children: [
         const Text('Recent Activity Logs', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('admin_logs').orderBy('timestamp', descending: true).limit(10).snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
-            }
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Text('No recent activity logs.');
-            }
-            final logs = snapshot.data!.docs;
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: logs.length,
-              itemBuilder: (context, index) {
-                final log = logs[index].data() as Map<String, dynamic>;
-                final timestamp = (log['timestamp'] as Timestamp).toDate();
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  child: ListTile(
-                    title: Text(log['action']),
-                    subtitle: Text('By: ${log['adminUid']} at $timestamp'),
-                  ),
-                );
-              },
-            );
-          },
+        SizedBox(
+          height: 200,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('admin_logs').orderBy('timestamp', descending: true).limit(10).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Text('No recent activity logs.');
+              }
+              final logs = snapshot.data!.docs;
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: logs.length,
+                itemBuilder: (context, index) {
+                  final log = logs[index].data() as Map<String, dynamic>;
+                  final timestamp = (log['timestamp'] as Timestamp).toDate();
+                  return Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      title: Text(log['action']),
+                      subtitle: Text('By: ${log['adminUid']} at $timestamp'),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );
