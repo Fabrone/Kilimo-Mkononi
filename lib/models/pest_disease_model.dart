@@ -702,7 +702,8 @@ class PestIntervention {
   final double? area;
   final String areaUnit;
   final Timestamp timestamp;
-  final String userId; 
+  final String userId;
+  final bool isDeleted; // New field for soft deletion
 
   PestIntervention({
     this.id,
@@ -715,7 +716,8 @@ class PestIntervention {
     this.area,
     required this.areaUnit,
     required this.timestamp,
-    required this.userId, 
+    required this.userId,
+    this.isDeleted = false,
   });
 
   Map<String, dynamic> toMap() => {
@@ -728,7 +730,8 @@ class PestIntervention {
         'area': area,
         'areaUnit': areaUnit,
         'timestamp': timestamp,
-        'userId': userId, 
+        'userId': userId,
+        'isDeleted': isDeleted,
       };
 
   factory PestIntervention.fromMap(Map<String, dynamic> map, String id) => PestIntervention(
@@ -743,6 +746,7 @@ class PestIntervention {
         areaUnit: map['areaUnit'] as String,
         timestamp: map['timestamp'] as Timestamp,
         userId: map['userId'] as String,
+        isDeleted: map['isDeleted'] as bool? ?? false,
       );
 
   PestIntervention copyWith({
@@ -757,6 +761,7 @@ class PestIntervention {
     String? areaUnit,
     Timestamp? timestamp,
     String? userId,
+    bool? isDeleted,
   }) => PestIntervention(
         id: id ?? this.id,
         pestName: pestName ?? this.pestName,
@@ -769,5 +774,6 @@ class PestIntervention {
         areaUnit: areaUnit ?? this.areaUnit,
         timestamp: timestamp ?? this.timestamp,
         userId: userId ?? this.userId,
+        isDeleted: isDeleted ?? this.isDeleted,
       );
 }

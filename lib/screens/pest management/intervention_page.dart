@@ -45,7 +45,6 @@ class _InterventionPageState extends State<InterventionPage> {
       return;
     }
 
-    // Relaxed validation: allow saving if at least one field is filled
     if (_interventionController.text.isEmpty &&
         _dosageController.text.isEmpty &&
         _unitController.text.isEmpty &&
@@ -64,15 +63,26 @@ class _InterventionPageState extends State<InterventionPage> {
       area: _areaController.text.isNotEmpty ? double.parse(_areaController.text) : null,
       areaUnit: _useSQM ? 'SQM' : 'Acres',
       timestamp: Timestamp.now(),
-      userId: user.uid, 
+      userId: user.uid,
+      isDeleted: false,
     );
 
     try {
-      await FirebaseFirestore.instance
+      final docRef = await FirebaseFirestore.instance
           .collection('pestinterventiondata')
           .doc(user.uid)
           .collection('interventions')
           .add(intervention.toMap());
+
+      await FirebaseFirestore.instance.collection('User_logs').add({
+        'userId': user.uid,
+        'action': 'create',
+        'collection': 'pestinterventiondata',
+        'documentId': docRef.id,
+        'timestamp': Timestamp.now(),
+        'details': 'Created intervention for ${widget.pestData.name}',
+      });
+
       setState(() {
         _hasSaved = true;
         _interventionController.clear();

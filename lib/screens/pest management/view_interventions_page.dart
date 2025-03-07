@@ -37,6 +37,8 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
         .doc(user.uid)
         .collection('interventions')
         .where('pestName', isEqualTo: widget.pestData.name)
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('timestamp', descending: true)
         .get();
     setState(() {
       _interventions = snapshot.docs.map((doc) => PestIntervention.fromMap(doc.data(), doc.id)).toList();
@@ -45,56 +47,40 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
 
   Future<void> _editIntervention(PestIntervention intervention) async {
     final controller = TextEditingController(text: intervention.intervention);
-    final dosageController = TextEditingController(text: intervention.dosage.toString());
+    final dosageController = TextEditingController(text: intervention.dosage?.toString() ?? '');
     final unitController = TextEditingController(text: intervention.unit);
-    final areaController = TextEditingController(text: intervention.area.toString());
+    final areaController = TextEditingController(text: intervention.area?.toString() ?? '');
     bool useSQM = intervention.areaUnit == 'SQM';
 
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Intervention'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(labelText: 'Intervention Used'),
-              ),
-              TextField(
-                controller: dosageController,
-                decoration: const InputDecoration(labelText: 'Dosage Applied'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: unitController,
-                decoration: const InputDecoration(labelText: 'Unit'),
-              ),
-              TextField(
-                controller: areaController,
-                decoration: const InputDecoration(labelText: 'Total Area Affected'),
-                keyboardType: TextInputType.number,
-              ),
-              SwitchListTile(
-                title: const Text('Use SQM'),
-                value: useSQM,
-                onChanged: (value) => setState(() => useSQM = value), // Note: This won't update UI in dialog; use StatefulBuilder if needed
-              ),
-            ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Intervention'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: controller, decoration: const InputDecoration(labelText: 'Intervention Used')),
+                TextField(controller: dosageController, decoration: const InputDecoration(labelText: 'Dosage Applied'), keyboardType: TextInputType.number),
+                TextField(controller: unitController, decoration: const InputDecoration(labelText: 'Unit')),
+                TextField(controller: areaController, decoration: const InputDecoration(labelText: 'Total Area Affected'), keyboardType: TextInputType.number),
+                SwitchListTile(
+                  title: const Text('Use SQM'),
+                  value: useSQM,
+                  onChanged: (value) => setDialogState(() => useSQM = value),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              // Allow partial updates; no strict validation
-              Navigator.pop(dialogContext, true);
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
@@ -107,23 +93,33 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
         areaUnit: useSQM ? 'SQM' : 'Acres',
       );
 
-      final user = FirebaseAuth.instance.currentUser;
+      final user = FirebaseAuth.instance.currentUser!;
       try {
         await FirebaseFirestore.instance
             .collection('pestinterventiondata')
-            .doc(user!.uid)
+            .doc(user.uid)
             .collection('interventions')
             .doc(intervention.id)
             .set(updatedIntervention.toMap());
+
+        await FirebaseFirestore.instance.collection('User_logs').add({
+          'userId': user.uid,
+          'action': 'edit',
+          'collection': 'pestinterventiondata',
+          'documentId': intervention.id,
+          'timestamp': Timestamp.now(),
+          'details': 'Updated intervention for ${widget.pestData.name}',
+        });
+
         if (mounted) {
-          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Intervention updated successfully')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Intervention updated successfully')));
           setState(() {
             _interventions[_interventions.indexWhere((i) => i.id == intervention.id)] = updatedIntervention;
           });
         }
       } catch (e) {
         if (mounted) {
-          scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error updating intervention: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error updating intervention: $e')));
         }
       }
     }
@@ -135,7 +131,7 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Deletion'),
-        content: const Text('Are you sure you want to delete this intervention?'),
+        content: const Text('Are you sure you want to delete this intervention? It can be restored by an admin.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
@@ -147,14 +143,24 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
     );
 
     if (confirm == true && mounted) {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = FirebaseAuth.instance.currentUser!;
       try {
         await FirebaseFirestore.instance
             .collection('pestinterventiondata')
-            .doc(user!.uid)
+            .doc(user.uid)
             .collection('interventions')
             .doc(intervention.id)
-            .delete();
+            .update({'isDeleted': true});
+
+        await FirebaseFirestore.instance.collection('User_logs').add({
+          'userId': user.uid,
+          'action': 'delete',
+          'collection': 'pestinterventiondata',
+          'documentId': intervention.id,
+          'timestamp': Timestamp.now(),
+          'details': 'Soft-deleted intervention for ${widget.pestData.name}',
+        });
+
         if (mounted) {
           scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Intervention deleted successfully')));
           setState(() {
@@ -257,25 +263,34 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
             return Card(
               elevation: 2,
               margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                title: Text(intervention.intervention.isNotEmpty ? intervention.intervention : 'No intervention specified'),
-                subtitle: Text(
-                  'Dosage: ${intervention.dosage} ${intervention.unit}, Area: ${intervention.area} ${intervention.areaUnit}',
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _editIntervention(intervention),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _deleteIntervention(intervention),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.alarm, color: Colors.green),
-                      onPressed: () => _scheduleFollowUp(intervention),
+                    Text('Pest: ${intervention.pestName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Crop: ${intervention.cropType}'),
+                    Text('Stage: ${intervention.cropStage}'),
+                    Text('Intervention: ${intervention.intervention.isNotEmpty ? intervention.intervention : "None"}'),
+                    Text('Dosage: ${intervention.dosage ?? "N/A"} ${intervention.unit ?? ""}'),
+                    Text('Area: ${intervention.area ?? "N/A"} ${intervention.areaUnit}'),
+                    Text('Saved: ${intervention.timestamp.toDate().toString()}'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _editIntervention(intervention),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteIntervention(intervention),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.notifications, color: Colors.green),
+                          onPressed: () => _scheduleFollowUp(intervention),
+                        ),
+                      ],
                     ),
                   ],
                 ),

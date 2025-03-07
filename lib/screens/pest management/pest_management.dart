@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kilimomkononi/models/pest_disease_model.dart';
 import 'package:kilimomkononi/screens/pest%20management/intervention_page.dart';
+import 'package:kilimomkononi/screens/pest%20management/user_pest_history_page.dart';
 
 class PestManagementPage extends StatefulWidget {
   const PestManagementPage({super.key});
@@ -18,48 +19,20 @@ class _PestManagementPageState extends State<PestManagementPage> {
   PestData? _pestData;
   bool _showPestDetails = false;
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _hintsKey = GlobalKey();
 
   final Map<String, List<String>> _cropPests = {
-    'Maize': [
-      'Termites', 'Cutworms', 'Maize Shoot Fly', 'Aphids', 'Stem Borers', 'Armyworms', 'Leafhoppers', 'Grasshoppers',
-      'Earworms', 'Thrips', 'Weevils', 'Birds', 'Maize Weevil', 'Larger Grain Borer', 'Angoumois Grain Moth', 'Rodents'
-    ],
-    'Beans': [
-      'Termites', 'Cutworms', 'Bean Fly', 'Aphids', 'Leafhoppers', 'Thrips', 'Pod Borers', 'Whiteflies', 'Beetles',
-      'Bean Weevil', 'Bruchid Beetles', 'Rodents'
-    ],
-    'Tomatoes': [
-      'Termites', 'Cutworms', 'Aphids', 'Whiteflies', 'Thrips', 'Leafminers', 'Spider Mites', 'Fruit Borers',
-      'Tomato Hornworms', 'Nematodes', 'Stink Bugs', 'Bollworms', 'Tomato Leafminers', 'Fruit Flies', 'Beet Armyworms', 'Rodents'
-    ],
-    'Cassava': [
-      'Termites', 'Mealybugs', 'Aphids', 'Whiteflies', 'Thrips', 'Spider Mites', 'Cassava Green Mite', 'Cassava Mosaic Virus Vectors',
-      'Scale Insects', 'Grasshoppers', 'Rodents', 'Storage Weevils'
-    ],
-    'Rice': [
-      'Termites', 'Cutworms', 'Rice Root Weevils', 'Stem Borers', 'Rice Gall Midges', 'Leafhoppers', 'Plant Hoppers', 'Rice Hispa',
-      'Armyworms', 'Thrips', 'Aphids', 'Caseworms', 'Ear-Cutting Caterpillars', 'Rice Bug', 'Grain-Feeding Weevils', 'Rodents'
-    ],
-    'Potatoes': [
-      'Termites', 'Cutworms', 'Aphids', 'Leafhoppers', 'Whiteflies', 'Thrips', 'Potato Tuber Moth', 'Colorado Potato Beetle',
-      'Wireworms', 'Flea Beetles', 'Nematodes', 'Leafminers', 'Armyworms', 'Bollworms', 'Rodents'
-    ],
-    'Wheat': [
-      'Termites', 'Cutworms', 'Aphids', 'Wireworms', 'Leafhoppers', 'Armyworms', 'Stem Borers', 'Wheat Midges', 'Hessian Fly',
-      'Thrips', 'Grain Borers', 'Weevils', 'Rodents'
-    ],
-    'Cabbage/Kales': [
-      'Termites', 'Cutworms', 'Aphids', 'Whiteflies', 'Thrips', 'Diamondback Moth', 'Cabbage Looper', 'Leafminers', 'Flea Beetles',
-      'Cabbage Webworm', 'Armyworms', 'Stink Bugs', 'Cabbage Root Maggot', 'Rodents'
-    ],
-    'Sugarcane': [
-      'Termites', 'Cutworms', 'Sugarcane Root Borers', 'White Grubs', 'Stem Borers', 'Sugarcane Top Shoot Borers', 'Leafhoppers',
-      'Mealybugs', 'Whiteflies', 'Aphids', 'Scale Insects', 'Armyworms', 'Thrips', 'Rodents'
-    ],
-    'Carrots': [
-      'Termites', 'Cutworms', 'Aphids', 'Leafhoppers', 'Whiteflies', 'Thrips', 'Carrot Rust Fly', 'Carrot Weevil', 'Nematodes',
-      'Wireworms', 'Armyworms', 'Leafminers', 'Rodents'
-    ],
+    'Maize': ['Termites', 'Cutworms', 'Maize Shoot Fly', 'Aphids', 'Stem Borers', 'Armyworms', 'Leafhoppers', 'Grasshoppers', 'Earworms', 'Thrips', 'Weevils', 'Birds', 'Maize Weevil', 'Larger Grain Borer', 'Angoumois Grain Moth', 'Rodents'],
+    'Beans': ['Termites', 'Cutworms', 'Bean Fly', 'Aphids', 'Leafhoppers', 'Thrips', 'Pod Borers', 'Whiteflies', 'Beetles', 'Bean Weevil', 'Bruchid Beetles', 'Rodents'],
+    'Tomatoes': ['Termites', 'Cutworms', 'Aphids', 'Whiteflies', 'Thrips', 'Leafminers', 'Spider Mites', 'Fruit Borers', 'Tomato Hornworms', 'Nematodes', 'Stink Bugs', 'Bollworms', 'Tomato Leafminers', 'Fruit Flies', 'Beet Armyworms', 'Rodents'],
+    'Cassava': ['Termites', 'Mealybugs', 'Aphids', 'Whiteflies', 'Thrips', 'Spider Mites', 'Cassava Green Mite', 'Cassava Mosaic Virus Vectors', 'Scale Insects', 'Grasshoppers', 'Rodents', 'Storage Weevils'],
+    'Rice': ['Termites', 'Cutworms', 'Rice Root Weevils', 'Stem Borers', 'Rice Gall Midges', 'Leafhoppers', 'Plant Hoppers', 'Rice Hispa', 'Armyworms', 'Thrips', 'Aphids', 'Caseworms', 'Ear-Cutting Caterpillars', 'Rice Bug', 'Grain-Feeding Weevils', 'Rodents'],
+    'Potatoes': ['Termites', 'Cutworms', 'Aphids', 'Leafhoppers', 'Whiteflies', 'Thrips', 'Potato Tuber Moth', 'Colorado Potato Beetle', 'Wireworms', 'Flea Beetles', 'Nematodes', 'Leafminers', 'Armyworms', 'Bollworms', 'Rodents'],
+    'Wheat': ['Termites', 'Cutworms', 'Aphids', 'Wireworms', 'Leafhoppers', 'Armyworms', 'Stem Borers', 'Wheat Midges', 'Hessian Fly', 'Thrips', 'Grain Borers', 'Weevils', 'Rodents'],
+    'Cabbage/Kales': ['Termites', 'Cutworms', 'Aphids', 'Whiteflies', 'Thrips', 'Diamondback Moth', 'Cabbage Looper', 'Leafminers', 'Flea Beetles', 'Cabbage Webworm', 'Armyworms', 'Stink Bugs', 'Cabbage Root Maggot', 'Rodents'],
+    'Sugarcane': ['Termites', 'Cutworms', 'Sugarcane Root Borers', 'White Grubs', 'Stem Borers', 'Sugarcane Top Shoot Borers', 'Leafhoppers', 'Mealybugs', 'Whiteflies', 'Aphids', 'Scale Insects', 'Armyworms', 'Thrips', 'Rodents'],
+    'Carrots': ['Termites', 'Cutworms', 'Aphids', 'Leafhoppers', 'Whiteflies', 'Thrips', 'Carrot Rust Fly', 'Carrot Weevil', 'Nematodes', 'Wireworms', 'Armyworms', 'Leafminers', 'Rodents'],
   };
 
   final List<String> _cropStages = [
@@ -71,6 +44,12 @@ class _PestManagementPageState extends State<PestManagementPage> {
   void initState() {
     super.initState();
     _initializeNotifications();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeNotifications() async {
@@ -90,6 +69,18 @@ class _PestManagementPageState extends State<PestManagementPage> {
     }
   }
 
+  void _scrollToHints() {
+    if (_showPestDetails && _hintsKey.currentContext != null) {
+      final RenderBox box = _hintsKey.currentContext!.findRenderObject() as RenderBox;
+      final position = box.localToGlobal(Offset.zero).dy + _scrollController.offset - 100;
+      _scrollController.animateTo(
+        position,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -104,6 +95,7 @@ class _PestManagementPageState extends State<PestManagementPage> {
         color: Colors.grey[200],
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
+          controller: _scrollController,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -112,6 +104,7 @@ class _PestManagementPageState extends State<PestManagementPage> {
                   _selectedCrop = val;
                   _selectedPest = null;
                   _pestData = null;
+                  _showPestDetails = false;
                 });
               }),
               const SizedBox(height: 16),
@@ -121,6 +114,7 @@ class _PestManagementPageState extends State<PestManagementPage> {
                 setState(() {
                   _selectedPest = val;
                   _updatePestDetails();
+                  _showPestDetails = false;
                 });
               }),
               if (_pestData != null) ...[
@@ -131,7 +125,12 @@ class _PestManagementPageState extends State<PestManagementPage> {
               GestureDetector(
                 onTap: () {
                   if (_pestData != null) {
-                    setState(() => _showPestDetails = !_showPestDetails);
+                    setState(() {
+                      _showPestDetails = !_showPestDetails;
+                      if (_showPestDetails) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToHints());
+                      }
+                    });
                   } else {
                     scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please select a pest first')));
                   }
@@ -146,35 +145,55 @@ class _PestManagementPageState extends State<PestManagementPage> {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const UserPestHistoryPage()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text('View My Pest History'),
+              ),
               if (_showPestDetails && _pestData != null) ...[
                 const SizedBox(height: 8),
-                _buildHintCard('Prevention Strategies', _pestData!.preventionStrategies.join('\n')),
-                _buildHintCard('Possible Interventions', 'Chemical control with ${_pestData!.activeAgent}'),
-                _buildHintCard('Possible Causes', _pestData!.possibleCauses.join('\n')),
-                _buildHintCard('Herbicides', _pestData!.herbicides.join('\n')),
-                const SizedBox(height: 16),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => InterventionPage(
-                            pestData: _pestData!,
-                            cropType: _selectedCrop!,
-                            cropStage: _selectedStage ?? '',
-                            notificationsPlugin: _notificationsPlugin,
-                          ),
+                Column(
+                  key: _hintsKey,
+                  children: [
+                    _buildHintCard('Prevention Strategies', _pestData!.preventionStrategies.join('\n')),
+                    _buildHintCard('Possible Interventions', 'Chemical control with ${_pestData!.activeAgent}'),
+                    _buildHintCard('Possible Causes', _pestData!.possibleCauses.join('\n')),
+                    _buildHintCard('Herbicides', _pestData!.herbicides.join('\n')),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => InterventionPage(
+                                pestData: _pestData!,
+                                cropType: _selectedCrop!,
+                                cropStage: _selectedStage ?? '',
+                                notificationsPlugin: _notificationsPlugin,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 3, 39, 4),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        child: const Text('Manage Pest'),
+                      ),
                     ),
-                    child: const Text('Manage Pest'),
-                  ),
+                  ],
                 ),
               ],
             ],
@@ -239,17 +258,14 @@ class _PestManagementPageState extends State<PestManagementPage> {
         padding: const EdgeInsets.all(12.0),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width - 56, // Account for padding and card margins
-            maxHeight: MediaQuery.of(context).size.height * 0.4, // Limit to 40% of screen height
+            maxWidth: MediaQuery.of(context).size.width - 56,
+            maxHeight: MediaQuery.of(context).size.height * 0.4,
           ),
           child: FutureBuilder<Size>(
             future: _getImageSize(imagePath),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
-                return const SizedBox(
-                  height: 150,
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const SizedBox(height: 150, child: Center(child: CircularProgressIndicator()));
               }
               final imageSize = snapshot.data!;
               return AspectRatio(
@@ -276,7 +292,7 @@ class _PestManagementPageState extends State<PestManagementPage> {
           completer.complete(Size(info.image.width.toDouble(), info.image.height.toDouble()));
         },
         onError: (exception, stackTrace) {
-          completer.complete(const Size(150, 150)); // Default size on error
+          completer.complete(const Size(150, 150));
         },
       ),
     );
