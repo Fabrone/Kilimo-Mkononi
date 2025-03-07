@@ -446,7 +446,7 @@ class _HomePageState extends State<HomePage> {
               );
             }
           }),
-          _buildDrawerItem(Icons.pest_control, 'Pest Management', () {
+          _buildDrawerItem(Icons.pest_control, 'Manage Pests & Diseases', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()));
           }),
           _buildDrawerItem(Icons.supervisor_account, 'Farm Management', () {

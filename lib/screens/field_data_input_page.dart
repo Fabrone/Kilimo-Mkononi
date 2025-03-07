@@ -179,7 +179,7 @@ class _FieldDataInputPageState extends State<FieldDataInputPage> with SingleTick
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
-            'Field Data Management',
+            'Field Data Input',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
