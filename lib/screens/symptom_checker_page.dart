@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:kilimomkononi/screens/pest_management.dart';
+import 'package:kilimomkononi/screens/pest%20management/pest_management.dart';
 import 'package:kilimomkononi/screens/disease_management_page.dart';
 
 class SymptomCheckerPage extends StatefulWidget {

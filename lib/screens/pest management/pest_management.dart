@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kilimomkononi/models/pest_disease_model.dart';
-import 'package:kilimomkononi/screens/intervention_page.dart';
+import 'package:kilimomkononi/screens/pest%20management/intervention_page.dart';
 
 class PestManagementPage extends StatefulWidget {
   const PestManagementPage({super.key});

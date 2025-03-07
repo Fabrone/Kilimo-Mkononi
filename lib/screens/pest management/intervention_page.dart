@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kilimomkononi/models/pest_disease_model.dart';
-import 'package:kilimomkononi/screens/view_interventions_page.dart';
+import 'package:kilimomkononi/screens/pest%20management/view_interventions_page.dart';
 
 class InterventionPage extends StatefulWidget {
   final PestData pestData;
