@@ -31,18 +31,29 @@ class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
+      final doc = await FirebaseFirestore.instance
           .collection('pestinterventiondata')
           .doc(user.uid)
-          .collection('interventions')
-          .where('isDeleted', isEqualTo: false)
-          .orderBy('timestamp', descending: true)
           .get();
-      _logger.i('Fetched ${snapshot.docs.length} interventions for user ${user.uid}');
-      setState(() {
-        _interventions = snapshot.docs.map((doc) => PestIntervention.fromMap(doc.data(), doc.id)).toList();
-        _isLoading = false;
-      });
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final interventions = (data['interventions'] as List<dynamic>? ?? [])
+            .map((item) => PestIntervention.fromMap(item as Map<String, dynamic>, item['id'] as String))
+            .where((intervention) => !intervention.isDeleted)
+            .toList();
+
+        interventions.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Sort descending
+
+        setState(() {
+          _interventions = interventions;
+          _isLoading = false;
+        });
+        _logger.i('Fetched ${_interventions.length} interventions for user ${user.uid}');
+      } else {
+        setState(() => _isLoading = false);
+        _logger.i('No interventions found for user ${user.uid}');
+      }
     } catch (e) {
       _logger.e('Error loading history: $e');
       setState(() => _isLoading = false);
@@ -93,18 +104,21 @@ class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
 
       final user = FirebaseAuth.instance.currentUser!;
       try {
-        await FirebaseFirestore.instance
-            .collection('pestinterventiondata')
-            .doc(user.uid)
-            .collection('interventions')
-            .doc(intervention.id)
-            .set(updatedIntervention.toMap());
+        final docRef = FirebaseFirestore.instance.collection('pestinterventiondata').doc(user.uid);
+        final doc = await docRef.get();
+        final interventions = (doc.data()!['interventions'] as List<dynamic>)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        final index = interventions.indexWhere((item) => item['id'] == intervention.id);
+        interventions[index] = updatedIntervention.toMap();
+
+        await docRef.set({'interventions': interventions}, SetOptions(merge: true));
 
         await FirebaseFirestore.instance.collection('User_logs').add({
           'userId': user.uid,
           'action': 'edit',
           'collection': 'pestinterventiondata',
-          'documentId': intervention.id,
+          'documentId': user.uid,
           'timestamp': Timestamp.now(),
           'details': 'Updated intervention for ${intervention.pestName}',
         });
@@ -139,18 +153,21 @@ class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
     if (confirm == true && mounted) {
       final user = FirebaseAuth.instance.currentUser!;
       try {
-        await FirebaseFirestore.instance
-            .collection('pestinterventiondata')
-            .doc(user.uid)
-            .collection('interventions')
-            .doc(intervention.id)
-            .update({'isDeleted': true});
+        final docRef = FirebaseFirestore.instance.collection('pestinterventiondata').doc(user.uid);
+        final doc = await docRef.get();
+        final interventions = (doc.data()!['interventions'] as List<dynamic>)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        final index = interventions.indexWhere((item) => item['id'] == intervention.id);
+        interventions[index]['isDeleted'] = true;
+
+        await docRef.set({'interventions': interventions}, SetOptions(merge: true));
 
         await FirebaseFirestore.instance.collection('User_logs').add({
           'userId': user.uid,
           'action': 'delete',
           'collection': 'pestinterventiondata',
-          'documentId': intervention.id,
+          'documentId': user.uid,
           'timestamp': Timestamp.now(),
           'details': 'Soft-deleted intervention for ${intervention.pestName}',
         });

@@ -26,16 +26,23 @@ class _AdminPestManagementPageState extends State<AdminPestManagementPage> {
     try {
       _logger.i('Loading all interventions for admin');
       final snapshot = await FirebaseFirestore.instance
-          .collectionGroup('interventions')
-          .orderBy('timestamp', descending: true)
+          .collection('pestinterventiondata')
           .get();
+
+      final allInterventions = <PestIntervention>[];
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final userInterventions = (data['interventions'] as List<dynamic>? ?? [])
+            .map((item) => PestIntervention.fromMap(item as Map<String, dynamic>, item['id'] as String).copyWith(userId: doc.id))
+            .toList();
+        allInterventions.addAll(userInterventions);
+      }
+
+      allInterventions.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Sort descending
 
       if (mounted) {
         setState(() {
-          _interventions = snapshot.docs.map((doc) {
-            final data = doc.data();
-            return PestIntervention.fromMap(data, doc.id).copyWith(userId: doc.reference.parent.parent!.id);
-          }).toList();
+          _interventions = allInterventions;
           _isLoading = false;
         });
         _logger.i('Fetched ${_interventions.length} interventions');
@@ -48,39 +55,42 @@ class _AdminPestManagementPageState extends State<AdminPestManagementPage> {
     }
   }
 
-  Future<void> _restoreIntervention(String userId, String docId) async {
+  Future<void> _restoreIntervention(String userId, String interventionId) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
-      await FirebaseFirestore.instance
-          .collection('pestinterventiondata')
-          .doc(userId)
-          .collection('interventions')
-          .doc(docId)
-          .update({'isDeleted': false});
+      final docRef = FirebaseFirestore.instance.collection('pestinterventiondata').doc(userId);
+      final doc = await docRef.get();
+      final interventions = (doc.data()!['interventions'] as List<dynamic>)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      final index = interventions.indexWhere((item) => item['id'] == interventionId);
+      interventions[index]['isDeleted'] = false;
+
+      await docRef.set({'interventions': interventions}, SetOptions(merge: true));
 
       await FirebaseFirestore.instance.collection('User_logs').add({
         'userId': FirebaseAuth.instance.currentUser!.uid,
         'action': 'restore',
         'collection': 'pestinterventiondata',
-        'documentId': docId,
+        'documentId': userId,
         'timestamp': Timestamp.now(),
         'details': 'Restored intervention for user $userId',
       });
 
       if (mounted) {
         scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Intervention restored')));
-        _logger.i('Restored intervention $docId for user $userId');
+        _logger.i('Restored intervention $interventionId for user $userId');
         _loadAllInterventions();
       }
     } catch (e) {
-      _logger.e('Error restoring intervention $docId: $e');
+      _logger.e('Error restoring intervention $interventionId: $e');
       if (mounted) {
         scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error restoring intervention: $e')));
       }
     }
   }
 
-  Future<void> _hardDeleteIntervention(String userId, String docId) async {
+  Future<void> _hardDeleteIntervention(String userId, String interventionId) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
@@ -99,29 +109,31 @@ class _AdminPestManagementPageState extends State<AdminPestManagementPage> {
 
     if (confirm == true && mounted) {
       try {
-        await FirebaseFirestore.instance
-            .collection('pestinterventiondata')
-            .doc(userId)
-            .collection('interventions')
-            .doc(docId)
-            .delete();
+        final docRef = FirebaseFirestore.instance.collection('pestinterventiondata').doc(userId);
+        final doc = await docRef.get();
+        final interventions = (doc.data()!['interventions'] as List<dynamic>)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        interventions.removeWhere((item) => item['id'] == interventionId);
+
+        await docRef.set({'interventions': interventions}, SetOptions(merge: true));
 
         await FirebaseFirestore.instance.collection('User_logs').add({
           'userId': FirebaseAuth.instance.currentUser!.uid,
           'action': 'hard_delete',
           'collection': 'pestinterventiondata',
-          'documentId': docId,
+          'documentId': userId,
           'timestamp': Timestamp.now(),
           'details': 'Hard-deleted intervention for user $userId',
         });
 
         if (mounted) {
           scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Intervention permanently deleted')));
-          _logger.i('Hard-deleted intervention $docId for user $userId');
+          _logger.i('Hard-deleted intervention $interventionId for user $userId');
           _loadAllInterventions();
         }
       } catch (e) {
-        _logger.e('Error hard-deleting intervention $docId: $e');
+        _logger.e('Error hard-deleting intervention $interventionId: $e');
         if (mounted) {
           scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error deleting intervention: $e')));
         }

@@ -50,31 +50,30 @@ class _InterventionPageState extends State<InterventionPage> {
       return;
     }
 
-    final intervention = PestIntervention(
-      pestName: widget.pestData.name, // Still saved for reference, but not used for filtering
-      cropType: widget.cropType,
-      cropStage: widget.cropStage,
-      intervention: _interventionController.text,
-      area: _areaController.text.isNotEmpty ? double.tryParse(_areaController.text) : null,
-      areaUnit: _useSQM ? 'SQM' : 'Acres',
-      timestamp: Timestamp.now(),
-      userId: user.uid,
-      isDeleted: false,
-      amount: _amountController.text.isNotEmpty ? _amountController.text : null,
-    );
+    final intervention = {
+      'pestName': widget.pestData.name,
+      'cropType': widget.cropType,
+      'cropStage': widget.cropStage,
+      'intervention': _interventionController.text,
+      'area': _areaController.text.isNotEmpty ? double.tryParse(_areaController.text) : null,
+      'areaUnit': _useSQM ? 'SQM' : 'Acres',
+      'timestamp': Timestamp.now(),
+      'isDeleted': false,
+      'amount': _amountController.text.isNotEmpty ? _amountController.text : null,
+      'id': FirebaseFirestore.instance.collection('pestinterventiondata').doc().id, // Unique ID for each intervention
+    };
 
     try {
-      final docRef = await FirebaseFirestore.instance
-          .collection('pestinterventiondata')
-          .doc(user.uid)
-          .collection('interventions')
-          .add(intervention.toMap());
+      await FirebaseFirestore.instance.collection('pestinterventiondata').doc(user.uid).set({
+        'userId': user.uid,
+        'interventions': FieldValue.arrayUnion([intervention]),
+      }, SetOptions(merge: true));
 
       await FirebaseFirestore.instance.collection('User_logs').add({
         'userId': user.uid,
         'action': 'create',
         'collection': 'pestinterventiondata',
-        'documentId': docRef.id,
+        'documentId': user.uid,
         'timestamp': Timestamp.now(),
         'details': 'Created intervention for ${widget.pestData.name}',
       });
