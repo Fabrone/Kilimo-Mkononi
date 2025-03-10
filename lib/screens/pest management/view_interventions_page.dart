@@ -3,10 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kilimomkononi/models/pest_disease_model.dart';
+import 'package:logger/logger.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 class ViewInterventionsPage extends StatefulWidget {
-  final PestData pestData;
+  final PestData pestData; // Kept for navigation consistency, but not used for filtering
   final FlutterLocalNotificationsPlugin notificationsPlugin;
 
   const ViewInterventionsPage({
@@ -21,6 +22,8 @@ class ViewInterventionsPage extends StatefulWidget {
 
 class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
   List<PestIntervention> _interventions = [];
+  bool _isLoading = true;
+  final _logger = Logger();
 
   @override
   void initState() {
@@ -30,25 +33,34 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
 
   Future<void> _loadInterventions() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      _logger.w('No authenticated user found');
+      setState(() => _isLoading = false);
+      return;
+    }
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('pestinterventiondata')
-        .doc(user.uid)
-        .collection('interventions')
-        .where('pestName', isEqualTo: widget.pestData.name)
-        .where('isDeleted', isEqualTo: false)
-        .orderBy('timestamp', descending: true)
-        .get();
-    setState(() {
-      _interventions = snapshot.docs.map((doc) => PestIntervention.fromMap(doc.data(), doc.id)).toList();
-    });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('pestinterventiondata')
+          .doc(user.uid)
+          .collection('interventions')
+          .where('isDeleted', isEqualTo: false)
+          .orderBy('timestamp', descending: true)
+          .get();
+      _logger.i('Fetched ${snapshot.docs.length} interventions for user ${user.uid}');
+      setState(() {
+        _interventions = snapshot.docs.map((doc) => PestIntervention.fromMap(doc.data(), doc.id)).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      _logger.e('Error loading interventions: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _editIntervention(PestIntervention intervention) async {
     final controller = TextEditingController(text: intervention.intervention);
-    final dosageController = TextEditingController(text: intervention.dosage?.toString() ?? '');
-    final unitController = TextEditingController(text: intervention.unit);
+    final amountController = TextEditingController(text: intervention.amount ?? '');
     final areaController = TextEditingController(text: intervention.area?.toString() ?? '');
     bool useSQM = intervention.areaUnit == 'SQM';
 
@@ -62,8 +74,7 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(controller: controller, decoration: const InputDecoration(labelText: 'Intervention Used')),
-                TextField(controller: dosageController, decoration: const InputDecoration(labelText: 'Dosage Applied'), keyboardType: TextInputType.number),
-                TextField(controller: unitController, decoration: const InputDecoration(labelText: 'Unit')),
+                TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Amount Applied')),
                 TextField(controller: areaController, decoration: const InputDecoration(labelText: 'Total Area Affected'), keyboardType: TextInputType.number),
                 SwitchListTile(
                   title: const Text('Use SQM'),
@@ -87,8 +98,7 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
     if (result == true && mounted) {
       final updatedIntervention = intervention.copyWith(
         intervention: controller.text,
-        dosage: dosageController.text.isNotEmpty ? double.parse(dosageController.text) : null,
-        unit: unitController.text.isNotEmpty ? unitController.text : null,
+        amount: amountController.text.isNotEmpty ? amountController.text : null,
         area: areaController.text.isNotEmpty ? double.parse(areaController.text) : null,
         areaUnit: useSQM ? 'SQM' : 'Acres',
       );
@@ -108,7 +118,7 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
           'collection': 'pestinterventiondata',
           'documentId': intervention.id,
           'timestamp': Timestamp.now(),
-          'details': 'Updated intervention for ${widget.pestData.name}',
+          'details': 'Updated intervention for ${intervention.pestName}',
         });
 
         if (mounted) {
@@ -158,7 +168,7 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
           'collection': 'pestinterventiondata',
           'documentId': intervention.id,
           'timestamp': Timestamp.now(),
-          'details': 'Soft-deleted intervention for ${widget.pestData.name}',
+          'details': 'Soft-deleted intervention for ${intervention.pestName}',
         });
 
         if (mounted) {
@@ -227,7 +237,7 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
       try {
         await widget.notificationsPlugin.zonedSchedule(
           intervention.id.hashCode,
-          'Follow-Up for ${widget.pestData.name}',
+          'Follow-Up for ${intervention.pestName}',
           'Evaluate effectiveness of ${intervention.intervention}',
           tzDateTime,
           notificationDetails,
@@ -256,48 +266,52 @@ class _ViewInterventionsPageState extends State<ViewInterventionsPage> {
       body: Container(
         color: Colors.grey[200],
         padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: _interventions.length,
-          itemBuilder: (context, index) {
-            final intervention = _interventions[index];
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Pest: ${intervention.pestName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('Crop: ${intervention.cropType}'),
-                    Text('Stage: ${intervention.cropStage}'),
-                    Text('Intervention: ${intervention.intervention.isNotEmpty ? intervention.intervention : "None"}'),
-                    Text('Dosage: ${intervention.dosage ?? "N/A"} ${intervention.unit ?? ""}'),
-                    Text('Area: ${intervention.area ?? "N/A"} ${intervention.areaUnit}'),
-                    Text('Saved: ${intervention.timestamp.toDate().toString()}'),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _editIntervention(intervention),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _interventions.isEmpty
+                ? const Center(child: Text('No data saved. Please add data and save to view interventions.'))
+                : ListView.builder(
+                    itemCount: _interventions.length,
+                    itemBuilder: (context, index) {
+                      final intervention = _interventions[index];
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Pest: ${intervention.pestName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text('Crop: ${intervention.cropType}'),
+                              Text('Stage: ${intervention.cropStage}'),
+                              Text('Intervention: ${intervention.intervention.isNotEmpty ? intervention.intervention : "None"}'),
+                              Text('Amount: ${intervention.amount ?? "N/A"}'),
+                              Text('Area: ${intervention.area ?? "N/A"} ${intervention.areaUnit}'),
+                              Text('Saved: ${intervention.timestamp.toDate().toString()}'),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.blue),
+                                    onPressed: () => _editIntervention(intervention),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _deleteIntervention(intervention),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.notifications, color: Colors.green),
+                                    onPressed: () => _scheduleFollowUp(intervention),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteIntervention(intervention),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.notifications, color: Colors.green),
-                          onPressed: () => _scheduleFollowUp(intervention),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
+                      );
+                    },
+                  ),
       ),
     );
   }

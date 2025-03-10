@@ -690,20 +690,18 @@ class PestData {
     // Commentary: Accurate. Imidacloprid targets wireworms; rotation reduces populations. Gaucho/Admire are suitable.
   };
 }
-
 class PestIntervention {
   final String? id;
-  final String pestName;
+  final String pestName; // Kept for display, not filtering
   final String cropType;
   final String cropStage;
   final String intervention;
-  final double? dosage;
-  final String? unit;
   final double? area;
   final String areaUnit;
   final Timestamp timestamp;
   final String userId;
-  final bool isDeleted; // New field for soft deletion
+  final bool isDeleted;
+  final String? amount;
 
   PestIntervention({
     this.id,
@@ -711,13 +709,12 @@ class PestIntervention {
     required this.cropType,
     required this.cropStage,
     required this.intervention,
-    this.dosage,
-    this.unit,
     this.area,
     required this.areaUnit,
     required this.timestamp,
     required this.userId,
     this.isDeleted = false,
+    this.amount,
   });
 
   Map<String, dynamic> toMap() => {
@@ -725,13 +722,12 @@ class PestIntervention {
         'cropType': cropType,
         'cropStage': cropStage,
         'intervention': intervention,
-        'dosage': dosage,
-        'unit': unit,
         'area': area,
         'areaUnit': areaUnit,
         'timestamp': timestamp,
         'userId': userId,
         'isDeleted': isDeleted,
+        'amount': amount,
       };
 
   factory PestIntervention.fromMap(Map<String, dynamic> map, String id) => PestIntervention(
@@ -740,13 +736,12 @@ class PestIntervention {
         cropType: map['cropType'] as String,
         cropStage: map['cropStage'] as String,
         intervention: map['intervention'] as String,
-        dosage: map['dosage'] as double?,
-        unit: map['unit'] as String?,
         area: map['area'] as double?,
         areaUnit: map['areaUnit'] as String,
         timestamp: map['timestamp'] as Timestamp,
         userId: map['userId'] as String,
         isDeleted: map['isDeleted'] as bool? ?? false,
+        amount: map['amount'] as String?,
       );
 
   PestIntervention copyWith({
@@ -755,25 +750,23 @@ class PestIntervention {
     String? cropType,
     String? cropStage,
     String? intervention,
-    double? dosage,
-    String? unit,
     double? area,
     String? areaUnit,
     Timestamp? timestamp,
     String? userId,
     bool? isDeleted,
+    String? amount,
   }) => PestIntervention(
         id: id ?? this.id,
         pestName: pestName ?? this.pestName,
         cropType: cropType ?? this.cropType,
         cropStage: cropStage ?? this.cropStage,
         intervention: intervention ?? this.intervention,
-        dosage: dosage ?? this.dosage,
-        unit: unit ?? this.unit,
         area: area ?? this.area,
         areaUnit: areaUnit ?? this.areaUnit,
         timestamp: timestamp ?? this.timestamp,
         userId: userId ?? this.userId,
         isDeleted: isDeleted ?? this.isDeleted,
+        amount: amount ?? this.amount,
       );
 }

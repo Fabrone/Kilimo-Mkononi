@@ -25,11 +25,9 @@ class InterventionPage extends StatefulWidget {
 
 class _InterventionPageState extends State<InterventionPage> {
   final _interventionController = TextEditingController();
-  final _dosageController = TextEditingController();
-  final _unitController = TextEditingController();
+  final _amountController = TextEditingController();
   final _areaController = TextEditingController();
   bool _useSQM = true;
-  bool _hasSaved = false;
 
   @override
   void initState() {
@@ -46,25 +44,23 @@ class _InterventionPageState extends State<InterventionPage> {
     }
 
     if (_interventionController.text.isEmpty &&
-        _dosageController.text.isEmpty &&
-        _unitController.text.isEmpty &&
+        _amountController.text.isEmpty &&
         _areaController.text.isEmpty) {
       scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please fill at least one field')));
       return;
     }
 
     final intervention = PestIntervention(
-      pestName: widget.pestData.name,
+      pestName: widget.pestData.name, // Still saved for reference, but not used for filtering
       cropType: widget.cropType,
       cropStage: widget.cropStage,
       intervention: _interventionController.text,
-      dosage: _dosageController.text.isNotEmpty ? double.parse(_dosageController.text) : null,
-      unit: _unitController.text.isNotEmpty ? _unitController.text : null,
-      area: _areaController.text.isNotEmpty ? double.parse(_areaController.text) : null,
+      area: _areaController.text.isNotEmpty ? double.tryParse(_areaController.text) : null,
       areaUnit: _useSQM ? 'SQM' : 'Acres',
       timestamp: Timestamp.now(),
       userId: user.uid,
       isDeleted: false,
+      amount: _amountController.text.isNotEmpty ? _amountController.text : null,
     );
 
     try {
@@ -84,10 +80,8 @@ class _InterventionPageState extends State<InterventionPage> {
       });
 
       setState(() {
-        _hasSaved = true;
         _interventionController.clear();
-        _dosageController.clear();
-        _unitController.clear();
+        _amountController.clear();
         _areaController.clear();
       });
       scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Intervention saved successfully')));
@@ -113,19 +107,14 @@ class _InterventionPageState extends State<InterventionPage> {
             children: [
               _buildTextField('Intervention Used', _interventionController, 'e.g., Chemical control'),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField('Dosage Applied', _dosageController, 'e.g., 5', isNumber: true),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField('Unit', _unitController, 'e.g., ml'),
-                  ),
-                ],
-              ),
+              _buildTextField('Amount Applied', _amountController, 'e.g., 5 ml'),
               const SizedBox(height: 16),
-              _buildTextField('Total Area Affected', _areaController, 'e.g., 100', isNumber: true),
+              _buildTextField(
+                'Total Area Affected',
+                _areaController,
+                _useSQM ? 'e.g., 100 (SQM)' : 'e.g., 100 (Acres)',
+                isNumber: true,
+              ),
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('Use Square Meters (SQM)', style: TextStyle(color: Colors.black87)),
@@ -148,17 +137,15 @@ class _InterventionPageState extends State<InterventionPage> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: _hasSaved
-                        ? () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ViewInterventionsPage(
-                                  pestData: widget.pestData,
-                                  notificationsPlugin: widget.notificationsPlugin,
-                                ),
-                              ),
-                            )
-                        : null,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ViewInterventionsPage(
+                          pestData: widget.pestData,
+                          notificationsPlugin: widget.notificationsPlugin,
+                        ),
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromARGB(255, 3, 39, 4),
                       foregroundColor: Colors.white,

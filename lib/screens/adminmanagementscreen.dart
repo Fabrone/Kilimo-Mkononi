@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'dart:convert';
 import 'package:kilimomkononi/screens/collection_management_screen.dart';
+import 'package:kilimomkononi/screens/pest%20management/admin_pest_management_page.dart'; // Added import
 
 class AdminManagementScreen extends StatefulWidget {
   const AdminManagementScreen({super.key});
@@ -28,7 +29,16 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
   Future<void> _fetchCollections() async {
     try {
       setState(() {
-        _allCollections = ['Users', 'marketdata', 'fielddata', 'pestdata', 'diseasedata', 'Admins', 'admin_logs', 'Analysts', 'PriceAnalysts'];
+        _allCollections = [
+          'Users',
+          'marketdata',
+          'fielddata',
+          'Admins',
+          'admin_logs',
+          'diseaseinterventiondata', // Added
+          'pestinterventiondata',   // Added
+          'User_logs',              // Added
+        ];
       });
     } catch (e) {
       logger.e('Error fetching collections: $e');
@@ -189,7 +199,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       childAspectRatio: 1.5,
       children: [
         _buildOptionCard('Assign Admin', Icons.person_add, () => _showAssignRoleDialog('Admins')),
-        _buildOptionCard('Assign Analyst', Icons.analytics, () => _showAssignRoleDialog('Analysts')),
+        _buildOptionCard('Manage Pests', Icons.bug_report, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPestManagementPage()))),
         _buildOptionCard('Add Price Analyst', Icons.monetization_on, () => _showAssignRoleDialog('PriceAnalysts')),
         _buildOptionCard('Manage Users', Icons.people, () => _showManageUsersScreen()),
       ],

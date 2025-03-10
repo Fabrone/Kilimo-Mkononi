@@ -450,7 +450,7 @@ class _FarmManagementScreenState extends State<FarmManagementScreen> with Single
                         const Text('Profit/Loss', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         TextFormField(controller: _totalProductionCostController, decoration: const InputDecoration(labelText: 'Total Cost (KSH)'), readOnly: true),
                         TextFormField(controller: _profitLossController, decoration: const InputDecoration(labelText: 'Profit/Loss (KSH)'), readOnly: true),
-                        ElevatedButton(onPressed: _calculateProfitLoss, child: const Text('Calculate Profit/Loss')),
+                        //ElevatedButton(onPressed: _calculateProfitLoss, child: const Text('Calculate Profit/Loss')),
                       ],
                     ),
                   ),
