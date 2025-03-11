@@ -12,52 +12,101 @@ class UserPestHistoryPage extends StatefulWidget {
 }
 
 class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
-  List<PestIntervention> _interventions = [];
-  bool _isLoading = true;
   final _logger = Logger();
 
   @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  Future<void> _loadHistory() async {
+  Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      _logger.w('No authenticated user found');
-      setState(() => _isLoading = false);
-      return;
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('My Pest Management History', style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: Text('Please log in to view history.')),
+      );
     }
 
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('pestinterventiondata')
-          .doc(user.uid)
-          .get();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Pest Management History', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color.fromARGB(255, 3, 39, 4),
+        foregroundColor: Colors.white,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('pestinterventiondata')
+            .where('userId', isEqualTo: user.uid)
+            .where('isDeleted', isEqualTo: false)
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            _logger.e('Error fetching history: ${snapshot.error}');
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No pest management history available.'));
+          }
 
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>;
-        final interventions = (data['interventions'] as List<dynamic>? ?? [])
-            .map((item) => PestIntervention.fromMap(item as Map<String, dynamic>, item['id'] as String))
-            .where((intervention) => !intervention.isDeleted)
-            .toList();
+          final interventions = snapshot.data!.docs.map((doc) {
+            try {
+              return PestIntervention.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>, null);
+            } catch (e) {
+              _logger.e('Error parsing intervention ${doc.id}: $e');
+              return null;
+            }
+          }).where((item) => item != null).cast<PestIntervention>().toList();
 
-        interventions.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Sort descending
-
-        setState(() {
-          _interventions = interventions;
-          _isLoading = false;
-        });
-        _logger.i('Fetched ${_interventions.length} interventions for user ${user.uid}');
-      } else {
-        setState(() => _isLoading = false);
-        _logger.i('No interventions found for user ${user.uid}');
-      }
-    } catch (e) {
-      _logger.e('Error loading history: $e');
-      setState(() => _isLoading = false);
-    }
+          return Container(
+            color: Colors.grey[200],
+            padding: const EdgeInsets.all(16.0),
+            child: ListView.builder(
+              itemCount: interventions.length,
+              itemBuilder: (context, index) {
+                final intervention = interventions[index];
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Pest: ${intervention.pestName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Crop: ${intervention.cropType}'),
+                        Text('Stage: ${intervention.cropStage}'),
+                        Text('Intervention: ${intervention.intervention.isNotEmpty ? intervention.intervention : "None"}'),
+                        Text('Amount: ${intervention.amount ?? "N/A"}'),
+                        Text('Area: ${intervention.area ?? "N/A"} ${intervention.areaUnit}'),
+                        Text('Saved: ${intervention.timestamp.toDate().toString()}'),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _editIntervention(intervention),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteIntervention(intervention),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _editIntervention(PestIntervention intervention) async {
@@ -88,46 +137,35 @@ class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-            TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Save'),
+            ),
           ],
         ),
       ),
     );
 
     if (result == true && mounted) {
-      final updatedIntervention = intervention.copyWith(
-        intervention: controller.text,
-        amount: amountController.text.isNotEmpty ? amountController.text : null,
-        area: areaController.text.isNotEmpty ? double.parse(areaController.text) : null,
-        areaUnit: useSQM ? 'SQM' : 'Acres',
-      );
-
-      final user = FirebaseAuth.instance.currentUser!;
       try {
-        final docRef = FirebaseFirestore.instance.collection('pestinterventiondata').doc(user.uid);
-        final doc = await docRef.get();
-        final interventions = (doc.data()!['interventions'] as List<dynamic>)
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .toList();
-        final index = interventions.indexWhere((item) => item['id'] == intervention.id);
-        interventions[index] = updatedIntervention.toMap();
-
-        await docRef.set({'interventions': interventions}, SetOptions(merge: true));
+        await FirebaseFirestore.instance.collection('pestinterventiondata').doc(intervention.id).update({
+          'intervention': controller.text,
+          'amount': amountController.text.isNotEmpty ? amountController.text : null,
+          'area': areaController.text.isNotEmpty ? double.parse(areaController.text) : null,
+          'areaUnit': useSQM ? 'SQM' : 'Acres',
+        });
 
         await FirebaseFirestore.instance.collection('User_logs').add({
-          'userId': user.uid,
+          'userId': intervention.userId,
           'action': 'edit',
           'collection': 'pestinterventiondata',
-          'documentId': user.uid,
+          'documentId': intervention.id,
           'timestamp': Timestamp.now(),
           'details': 'Updated intervention for ${intervention.pestName}',
         });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Intervention updated successfully')));
-          setState(() {
-            _interventions[_interventions.indexWhere((i) => i.id == intervention.id)] = updatedIntervention;
-          });
         }
       } catch (e) {
         if (mounted) {
@@ -145,38 +183,31 @@ class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
         content: const Text('Are you sure you want to delete this intervention? It can be restored by an admin.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
 
     if (confirm == true && mounted) {
-      final user = FirebaseAuth.instance.currentUser!;
       try {
-        final docRef = FirebaseFirestore.instance.collection('pestinterventiondata').doc(user.uid);
-        final doc = await docRef.get();
-        final interventions = (doc.data()!['interventions'] as List<dynamic>)
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .toList();
-        final index = interventions.indexWhere((item) => item['id'] == intervention.id);
-        interventions[index]['isDeleted'] = true;
-
-        await docRef.set({'interventions': interventions}, SetOptions(merge: true));
+        await FirebaseFirestore.instance.collection('pestinterventiondata').doc(intervention.id).update({
+          'isDeleted': true,
+        });
 
         await FirebaseFirestore.instance.collection('User_logs').add({
-          'userId': user.uid,
+          'userId': intervention.userId,
           'action': 'delete',
           'collection': 'pestinterventiondata',
-          'documentId': user.uid,
+          'documentId': intervention.id,
           'timestamp': Timestamp.now(),
           'details': 'Soft-deleted intervention for ${intervention.pestName}',
         });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Intervention deleted successfully')));
-          setState(() {
-            _interventions.removeWhere((i) => i.id == intervention.id);
-          });
         }
       } catch (e) {
         if (mounted) {
@@ -184,62 +215,5 @@ class _UserPestHistoryPageState extends State<UserPestHistoryPage> {
         }
       }
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Pest Management History', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color.fromARGB(255, 3, 39, 4),
-        foregroundColor: Colors.white,
-      ),
-      body: Container(
-        color: Colors.grey[200],
-        padding: const EdgeInsets.all(16.0),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _interventions.isEmpty
-                ? const Center(child: Text('No pest management history available.'))
-                : ListView.builder(
-                    itemCount: _interventions.length,
-                    itemBuilder: (context, index) {
-                      final intervention = _interventions[index];
-                      return Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Pest: ${intervention.pestName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text('Crop: ${intervention.cropType}'),
-                              Text('Stage: ${intervention.cropStage}'),
-                              Text('Intervention: ${intervention.intervention.isNotEmpty ? intervention.intervention : "None"}'),
-                              Text('Amount: ${intervention.amount ?? "N/A"}'),
-                              Text('Area: ${intervention.area ?? "N/A"} ${intervention.areaUnit}'),
-                              Text('Saved: ${intervention.timestamp.toDate().toString()}'),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.blue),
-                                    onPressed: () => _editIntervention(intervention),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _deleteIntervention(intervention),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-      ),
-    );
   }
 }

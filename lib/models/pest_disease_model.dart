@@ -691,8 +691,8 @@ class PestData {
   };
 }
 class PestIntervention {
-  final String? id;
-  final String pestName; // Kept for display, not filtering
+  final String? id; // Firestore document ID
+  final String pestName;
   final String cropType;
   final String cropStage;
   final String intervention;
@@ -713,60 +713,55 @@ class PestIntervention {
     required this.areaUnit,
     required this.timestamp,
     required this.userId,
-    this.isDeleted = false,
+    required this.isDeleted,
     this.amount,
   });
 
-  Map<String, dynamic> toMap() => {
-        'pestName': pestName,
-        'cropType': cropType,
-        'cropStage': cropStage,
-        'intervention': intervention,
-        'area': area,
-        'areaUnit': areaUnit,
-        'timestamp': timestamp,
-        'userId': userId,
-        'isDeleted': isDeleted,
-        'amount': amount,
-      };
+  Map<String, dynamic> toMap() {
+    return {
+      'pestName': pestName,
+      'cropType': cropType,
+      'cropStage': cropStage,
+      'intervention': intervention,
+      'area': area,
+      'areaUnit': areaUnit,
+      'timestamp': timestamp,
+      'userId': userId,
+      'isDeleted': isDeleted,
+      'amount': amount,
+    };
+  }
 
-  factory PestIntervention.fromMap(Map<String, dynamic> map, String id) => PestIntervention(
-        id: id,
-        pestName: map['pestName'] as String,
-        cropType: map['cropType'] as String,
-        cropStage: map['cropStage'] as String,
-        intervention: map['intervention'] as String,
-        area: map['area'] as double?,
-        areaUnit: map['areaUnit'] as String,
-        timestamp: map['timestamp'] as Timestamp,
-        userId: map['userId'] as String,
-        isDeleted: map['isDeleted'] as bool? ?? false,
-        amount: map['amount'] as String?,
-      );
+  factory PestIntervention.fromFirestore(DocumentSnapshot<Map<String, dynamic>> snapshot, SnapshotOptions? options) {
+    final data = snapshot.data()!;
+    return PestIntervention(
+      id: snapshot.id,
+      pestName: data['pestName'] as String? ?? 'Unknown',
+      cropType: data['cropType'] as String? ?? 'Unknown',
+      cropStage: data['cropStage'] as String? ?? 'Unknown',
+      intervention: data['intervention'] as String? ?? '',
+      area: data['area'] as double?,
+      areaUnit: data['areaUnit'] as String? ?? 'SQM',
+      timestamp: data['timestamp'] as Timestamp? ?? Timestamp.now(),
+      userId: data['userId'] as String? ?? 'Unknown',
+      isDeleted: data['isDeleted'] as bool? ?? false,
+      amount: data['amount'] as String?,
+    );
+  }
 
-  PestIntervention copyWith({
-    String? id,
-    String? pestName,
-    String? cropType,
-    String? cropStage,
-    String? intervention,
-    double? area,
-    String? areaUnit,
-    Timestamp? timestamp,
-    String? userId,
-    bool? isDeleted,
-    String? amount,
-  }) => PestIntervention(
-        id: id ?? this.id,
-        pestName: pestName ?? this.pestName,
-        cropType: cropType ?? this.cropType,
-        cropStage: cropStage ?? this.cropStage,
-        intervention: intervention ?? this.intervention,
-        area: area ?? this.area,
-        areaUnit: areaUnit ?? this.areaUnit,
-        timestamp: timestamp ?? this.timestamp,
-        userId: userId ?? this.userId,
-        isDeleted: isDeleted ?? this.isDeleted,
-        amount: amount ?? this.amount,
-      );
+  factory PestIntervention.fromMap(Map<String, dynamic> map, String docId) {
+    return PestIntervention(
+      id: docId,
+      pestName: map['pestName'] as String,
+      cropType: map['cropType'] as String,
+      cropStage: map['cropStage'] as String,
+      intervention: map['intervention'] as String,
+      area: map['area'] as double?,
+      areaUnit: map['areaUnit'] as String,
+      timestamp: map['timestamp'] as Timestamp,
+      userId: map['userId'] as String,
+      isDeleted: map['isDeleted'] as bool,
+      amount: map['amount'] as String?,
+    );
+  }
 }
