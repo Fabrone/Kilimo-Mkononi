@@ -4,8 +4,8 @@ class AccountSettingsScreen extends StatelessWidget {
   const AccountSettingsScreen({super.key});
 
   // Define custom green color
-  final Color customGreen = const Color(0xFF003900); // Green color #003900
-  final Color darkRed = const Color(0xFF8B0000); // Dark red for delete section
+  final Color customGreen = const Color(0xFF003900); 
+  final Color darkRed = const Color(0xFF8B0000); 
 
   // Helper method to create a green circle with an icon
   Widget _buildIcon(IconData icon) {

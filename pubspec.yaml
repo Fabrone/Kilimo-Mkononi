@@ -58,6 +58,7 @@ dependencies:
   flutter_pdfview: ^1.4.0
   universal_html: ^2.2.4
   provider: ^6.1.2
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
