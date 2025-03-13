@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kilimomkononi/screens/pest%20management/pest_management.dart';
 import 'package:kilimomkononi/screens/disease_management_page.dart';
-import 'package:kilimomkononi/screens/symptom_checker_page.dart';
+//import 'package:kilimomkononi/screens/symptom_checker_page.dart';
 
 class PestDiseaseHomePage extends StatelessWidget {
   const PestDiseaseHomePage({super.key});
@@ -51,7 +51,7 @@ class PestDiseaseHomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            _buildOptionCard(
+            /*_buildOptionCard(
               context,
               'Identify Issue by Symptoms',
               Icons.search,
@@ -59,7 +59,7 @@ class PestDiseaseHomePage extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (context) => const SymptomCheckerPage()),
               ),
-            ),
+            ),*/
           ],
         ),
       ),

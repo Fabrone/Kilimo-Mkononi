@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:kilimomkononi/models/user_model.dart';
-import 'package:kilimomkononi/screens/adminmanagementscreen.dart';
+//import 'package:kilimomkononi/screens/adminmanagementscreen.dart';
+import 'package:kilimomkononi/screens/adminsamplescreen.dart';
 import 'package:kilimomkononi/screens/farm_management_screen.dart';
 import 'package:kilimomkononi/screens/farming_tips_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

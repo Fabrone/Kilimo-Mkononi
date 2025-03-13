@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'dart:convert';
 import 'package:kilimomkononi/screens/collection_management_screen.dart';
-import 'package:kilimomkononi/screens/pest%20management/admin_pest_management_page.dart'; // Added import
+import 'package:kilimomkononi/screens/pest%20management/admin_pest_management_page.dart';
 
 class AdminManagementScreen extends StatefulWidget {
   const AdminManagementScreen({super.key});
